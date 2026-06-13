@@ -21,9 +21,8 @@
 \begin{document}
 
 \title{Turkey Logistics Decision-Support System:\\
-A Transportation-Problem-Based Optimisation Platform\\
-with Scenario Analysis, Monte Carlo Simulation,\\
-and Multi-Objective Pareto Frontier}
+A Transportation-Problem Platform with Disruption Simulation,\\
+Demand Forecasting, Facility Location, and Multi-Period Planning}
 
 \author{
   \IEEEauthorblockN{Fatih Bahad\i r Karaku\c{s}}
@@ -41,23 +40,27 @@ for optimising freight distribution across a Turkey-wide logistics network
 composed of five production centres and eight regional warehouses.
 The system formulates the distribution problem as a linear programming (LP)
 transportation model and solves it with the CBC simplex solver via PuLP.
-Beyond deterministic optimisation, the platform integrates four analytical
+Beyond deterministic optimisation, the platform integrates eight analytical
 modules: sensitivity analysis via dual variables and reduced costs;
-Monte Carlo simulation of demand uncertainty with truncated-normal sampling;
-a multi-objective Pareto frontier balancing cost against travel time; and
-a scenario manager supporting rapid what-if comparisons.
-A Streamlit web dashboard delivers interactive maps (Folium/AntPath),
-Sankey flow diagrams, heatmaps, and downloadable PDF reports.
-Results demonstrate that routing 1{,}410 units across 8--10 active routes
-achieves a minimum total transport cost of approximately
+Monte Carlo simulation of demand uncertainty; a multi-objective Pareto
+frontier balancing cost against travel time; a scenario manager for
+rapid what-if comparisons; a four-quarter multi-period LP with inventory
+carryover; Holt double-exponential demand forecasting; supply disruption
+simulation with route re-optimisation; and a p-median binary MIP for
+facility location.
+A Streamlit web dashboard with eleven interactive tabs delivers maps
+(Folium), Sankey diagrams, heatmaps, and downloadable PDF/Excel reports,
+while a FastAPI backend exposes all analytical endpoints as a REST API.
+Results demonstrate that routing 1{,}610 units across 8--10 active routes
+achieves minimum total transport costs of approximately
 \textlira 118{,}000--168{,}000 depending on the operating scenario,
-with shadow-price analysis identifying Antalya and Gaziantep demand nodes
-as the binding constraints most sensitive to cost changes.
+with shadow-price analysis identifying Antalya and Gaziantep as the
+binding demand constraints most sensitive to cost changes.
 \end{abstract}
 
 \begin{IEEEkeywords}
-transportation problem, linear programming, decision support system,
-Monte Carlo simulation, Pareto frontier, Streamlit, logistics optimisation
+transportation problem, linear programming, p-median facility location,
+demand forecasting, disruption simulation, Streamlit, logistics optimisation
 \end{IEEEkeywords}
 
 %=======================================================================
@@ -74,30 +77,28 @@ tools that cannot guarantee optimality or quantify the cost of uncertainty.
 
 This work describes a Decision-Support System (DSS) that addresses these
 shortcomings by embedding a classical LP transportation model inside an
-interactive web application.
+interactive web application with eight analytical extensions.
 The platform allows analysts to:
 \begin{itemize}
-  \item select predefined scenarios (Normal Season, Summer Season,
-        Fuel Increase, Winter Season) or customise supply and demand
-        parameters in real time;
-  \item visualise optimal shipment routes on an animated interactive map;
-  \item run sensitivity analysis to identify which constraints are
-        most valuable to relax;
-  \item simulate the cost distribution under stochastic demand via
-        Monte Carlo methods;
-  \item trace the Pareto frontier between cost minimisation and
-        travel-time minimisation;
-  \item save and compare multiple solved scenarios side-by-side;
-  \item export a structured PDF report for stakeholders.
+  \item select predefined scenarios or customise supply and demand in real time;
+  \item impose a CO\textsubscript{2} emission budget as a hard LP constraint;
+  \item run sensitivity analysis to identify binding constraints;
+  \item simulate cost distributions under stochastic demand (Monte Carlo);
+  \item trace the Pareto frontier between cost and travel-time;
+  \item plan over four quarters with inventory carryover (multi-period LP);
+  \item forecast future demand with Holt exponential smoothing;
+  \item simulate supply disruptions and inspect automatic re-routing;
+  \item find optimal hub locations with a p-median binary MIP.
 \end{itemize}
 
 The remainder of this paper is organised as follows.
-Section~\ref{sec:problem} states the mathematical problem formulation.
+Section~\ref{sec:problem} states the mathematical formulation.
 Section~\ref{sec:cost} describes the cost estimation model.
 Section~\ref{sec:solution} outlines the solution approach.
 Section~\ref{sec:architecture} summarises the system architecture.
 Section~\ref{sec:results} presents deterministic optimisation results.
-Sections~\ref{sec:scenario}--\ref{sec:pareto} cover the analytical modules.
+Sections~\ref{sec:scenario}--\ref{sec:pareto} cover the core analytics.
+Section~\ref{sec:extensions} describes the four extensions.
 Section~\ref{sec:conclusion} concludes.
 
 %=======================================================================
@@ -106,57 +107,49 @@ Section~\ref{sec:conclusion} concludes.
 
 \subsection{Network Structure}
 
-The logistics network consists of a set of production centres
+The logistics network consists of production centres
 $I = \{$\.Istanbul, Ankara, \.Izmir, Bursa, Adana$\}$ and
-a set of warehouses
+warehouses
 $J = \{$Konya, Kayseri, Trabzon, Gaziantep, Antalya,
 Samsun, Eski\c{s}ehir, Diyarbak\i r$\}$.
-Each production centre $i \in I$ has a fixed supply capacity $s_i$ (units),
-and each warehouse $j \in J$ has a demand $d_j$ (units).
-The network is \emph{unbalanced} with total supply exceeding total demand
-($\sum_i s_i = 2{,}650 > \sum_j d_j = 1{,}410$ units),
-so surplus capacity is absorbed via slack variables.
+Each source $i \in I$ has supply capacity $s_i$ (units)
+and each warehouse $j \in J$ has demand $d_j$ (units).
+The network is \emph{unbalanced}: total supply exceeds total demand
+($\sum_i s_i = 2{,}650 > \sum_j d_j = 1{,}610$ units).
 
 \subsection{Decision Variables}
 
 $$x_{ij} \geq 0 \quad \forall\, i \in I,\; j \in J$$
 
-where $x_{ij}$ is the number of units shipped from production centre $i$
-to warehouse $j$.
-
 \subsection{Objective Function}
 
-Minimise the total transportation cost:
 \begin{equation}
   Z = \sum_{i \in I}\sum_{j \in J} c_{ij}\, x_{ij}
   \label{eq:objective}
 \end{equation}
 
-where $c_{ij}$ (TL/unit) is the unit transport cost on route $(i,j)$.
-
 \subsection{Constraints}
 
-\textit{Supply constraints} (capacity cannot be exceeded):
-\begin{equation}
-  \sum_{j \in J} x_{ij} \leq s_i \quad \forall\, i \in I
-  \label{eq:supply}
-\end{equation}
+\begin{align}
+  \sum_{j \in J} x_{ij} &\leq s_i \quad \forall\, i \in I
+  \label{eq:supply} \\
+  \sum_{i \in I} x_{ij} &\geq d_j \quad \forall\, j \in J
+  \label{eq:demand} \\
+  \sum_{i,j} e_{ij}\, x_{ij} &\leq B
+  \label{eq:co2}
+\end{align}
 
-\textit{Demand constraints} (all demand must be fully satisfied):
-\begin{equation}
-  \sum_{i \in I} x_{ij} \geq d_j \quad \forall\, j \in J
-  \label{eq:demand}
-\end{equation}
-
-The model contains $|I| \cdot |J| = 40$ decision variables and
-$|I| + |J| = 13$ functional constraints.
+where $e_{ij}$ (kg CO\textsubscript{2}/unit) is the per-unit emission factor
+derived from IPCC diesel combustion coefficients \cite{ipcc},
+and $B$ is an optional emission budget (constraint omitted when not active).
+The model has $|I| \cdot |J| = 40$ decision variables and up to
+$|I| + |J| + 1 = 14$ functional constraints.
 
 %=======================================================================
 \section{Cost Estimation Model}
 \label{sec:cost}
 
-Unit transport cost $c_{ij}$ is derived from a per-trip cost model
-divided by truck capacity $q$:
+Unit transport cost $c_{ij}$ is derived from a per-trip cost model:
 
 \begin{equation}
   c_{ij} = \frac{
@@ -168,95 +161,65 @@ divided by truck capacity $q$:
   \label{eq:cost}
 \end{equation}
 
-where:
-\begin{itemize}
-  \item $d_{ij}$ --- road distance (km), sourced from Google Maps
-        approximations or optionally fetched via the OSRM routing API
-        \cite{osrm};
-  \item $L/100 = 30$ --- fuel consumption (L/100 km) for a heavy goods vehicle;
-  \item $p_f = 40$ TL/L --- diesel price (adjustable via live input);
-  \item $v = 80$ km/h --- average driving speed;
-  \item $w = 150$ TL/h --- driver wage;
-  \item $\tau_{ij}$ --- HGS/OGS highway toll (TL per truck), route-specific;
-  \item $f = 200$ TL --- fixed loading/unloading fee per trip;
-  \item $q = 25$ --- truck capacity in distribution units.
-\end{itemize}
-
-The fuel multiplier $\mu_f \geq 0$ scales the entire cost matrix to
-model fuel price shocks:
-$c_{ij}^{(\mu)} = c_{ij} \cdot \mu_f$.
+Parameters: road distance $d_{ij}$ (km); fuel consumption
+$L/100 = 30$ L/100 km; diesel price $p_f = 40$ TL/L;
+average speed $v = 80$ km/h; driver wage $w = 150$ TL/h;
+route toll $\tau_{ij}$ (TL); fixed fee $f = 200$ TL;
+truck capacity $q = 25$ units.
+A fuel multiplier $\mu_f$ scales the cost matrix for fuel price shocks.
+CO\textsubscript{2} emissions per unit are computed as
+$e_{ij} = d_{ij} \cdot \frac{L}{100} \cdot 2.68 / q$
+using an IPCC diesel emission factor of 2.68 kg CO\textsubscript{2}/L.
 
 %=======================================================================
 \section{Solution Approach}
 \label{sec:solution}
 
-The model is implemented in Python using PuLP \cite{pulp},
-an open-source LP modelling library.
-The CBC (Coin-or Branch and Cut) simplex solver \cite{cbc}
-is invoked with output suppressed.
-For a balanced/unbalanced transportation problem of this size
-(40 variables, 13 constraints), the simplex method typically converges
-in under 50 pivots, producing solutions in milliseconds.
-
-After solving, the system extracts:
-\begin{itemize}
-  \item the optimal shipment plan $\{x_{ij}^* > 0\}$;
-  \item slack values $\sigma_i = s_i - \sum_j x_{ij}^*$ per source;
-  \item demand fulfilment $\delta_j = \sum_i x_{ij}^*$ per warehouse;
-  \item dual variables (shadow prices) $\pi_i$, $\lambda_j$
-        for sensitivity analysis.
-\end{itemize}
+The model is implemented with PuLP \cite{pulp} and the CBC simplex
+solver \cite{cbc} (output suppressed).
+For a transportation LP of this size (40 variables, 13--14 constraints),
+the simplex method converges in under 50 pivots in milliseconds.
+Post-solve, the system extracts shipment plan, slack, demand fulfilment,
+and dual variables for downstream analytics.
 
 %=======================================================================
 \section{System Architecture}
 \label{sec:architecture}
 
-The DSS is structured as a five-module Python package.
-
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_architecture.png}
-  \caption{System architecture: data layer, solver, analytics, visualisation,
-           and Streamlit front-end.}
+  \caption{System architecture: data layer, six solver/analytics modules,
+           visualisation, FastAPI, and the eleven-tab Streamlit front-end.}
   \label{fig:architecture}
 \end{figure}
 
-\textbf{data.py} holds the network topology, distance matrix, toll table,
-cost parameters, scenario definitions, and the OSRM API client.
-
-\textbf{model.py} wraps the PuLP LP formulation and returns a structured
-result dictionary including the PuLP problem object for post-solve access
-to dual variables.
-
-\textbf{analytics.py} implements sensitivity analysis (dual variables and
-reduced costs), Monte Carlo demand simulation, and multi-objective
-Pareto-frontier enumeration.
-
-\textbf{visualization.py} builds all Plotly and Folium figures:
-the animated AntPath route map, Sankey flow diagram, cost breakdown bar
-chart, scenario comparison chart, and cost heatmap.
-
-\textbf{app.py} is the Streamlit entry point.
-It manages session state, wires the sidebar controls to the solver and
-analytics modules, and renders the eight-tab dashboard.
-
-The application ships with a Dockerfile for containerised deployment on
-any platform supporting Docker \cite{docker}.
+The DSS is structured as nine Python modules (Fig.~\ref{fig:architecture}).
+\textbf{data.py} holds the network topology, scenario definitions, CO\textsubscript{2}
+parameters, and the OSRM API client.
+\textbf{model.py} wraps the PuLP LP (with optional CO\textsubscript{2} cap).
+\textbf{analytics.py} implements sensitivity analysis, Monte Carlo simulation,
+and Pareto enumeration.
+\textbf{multiperiod.py} formulates the four-quarter LP with inventory balance.
+\textbf{forecasting.py} provides Holt double-exponential smoothing.
+\textbf{disruption.py} compares base and disrupted optimal plans.
+\textbf{pmedian.py} solves the p-median binary MIP.
+\textbf{visualization.py} builds all Plotly and Folium figures.
+\textbf{app.py} is the Streamlit entry point (eleven-tab dashboard).
+A \textbf{FastAPI} backend (\texttt{api/}) exposes \texttt{/solve},
+\texttt{/sensitivity}, \texttt{/monte-carlo}, and \texttt{/pareto} as a
+REST API; a Docker Compose file wires the two services together.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_interface.png}
-  \caption{Main dashboard: KPI cards and the eight-tab interface.}
+  \caption{Main dashboard: KPI cards and the eleven-tab interface.}
   \label{fig:interface}
 \end{figure}
 
 %=======================================================================
 \section{Optimisation Results}
 \label{sec:results}
-
-Table~\ref{tab:supply} lists the production centre capacities and
-Table~\ref{tab:demand} lists the warehouse demands for the base
-(Normal Season) scenario.
 
 \begin{table}[htbp]
 \caption{Production Centre Capacities}
@@ -294,7 +257,7 @@ Samsun       & 180 \\
 Eski\c{s}ehir & 160 \\
 Diyarbak\i r & 170 \\
 \midrule
-\textbf{Total} & \textbf{1{,}410} \\
+\textbf{Total} & \textbf{1{,}610} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -303,21 +266,21 @@ Under the Normal Season scenario, the CBC solver finds the optimal
 solution in under 10\,ms with a total cost of approximately
 \textlira 118{,}000.
 Eight to ten routes carry positive flow; the remaining slack of
-1{,}240 units resides primarily at \.Istanbul and \.Izmir.
+1{,}040 units resides primarily at \.Istanbul and \.Izmir.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_map.png}
-  \caption{Optimal shipment routes displayed on the interactive
-           Folium map. Line thickness is proportional to shipment volume.}
+  \caption{Optimal shipment routes on the interactive Folium map.
+           Line thickness is proportional to shipment volume.}
   \label{fig:map}
 \end{figure}
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_sankey.png}
-  \caption{Sankey flow diagram showing unit volumes from each
-           production centre to each served warehouse.}
+  \caption{Sankey flow diagram: unit volumes from each production centre
+           to each served warehouse.}
   \label{fig:sankey}
 \end{figure}
 
@@ -333,165 +296,187 @@ Eight to ten routes carry positive flow; the remaining slack of
 \label{sec:scenario}
 
 Four predefined scenarios capture common operating conditions:
-
-\begin{itemize}
-  \item \textbf{Normal Season}: base demand, $\mu_f = 1.0$.
-  \item \textbf{Summer Season}: Antalya $+40\%$, Trabzon $+20\%$,
-        Samsun $+15\%$ demand; fuel unchanged.
-  \item \textbf{Fuel Increase (+20\%)}: $\mu_f = 1.20$; demand unchanged.
-  \item \textbf{Winter Season}: inland cities up ($+10$--$20\%$),
-        coastal resorts down ($-20$--$30\%$); $\mu_f = 1.05$.
-\end{itemize}
-
-Users select a scenario, press \textit{Run Optimisation}, then
-\textit{Save Result}, and repeat for each scenario before pressing
-\textit{Compare Saved}.
-The comparison view (Fig.~\ref{fig:scenario}) shows a grouped bar chart of
-total cost with a secondary axis for percentage change relative to the first
-saved scenario.
+\textbf{Normal Season} (base, $\mu_f = 1.0$),
+\textbf{Summer Season} (Antalya $+40\%$, Trabzon $+20\%$, Samsun $+15\%$),
+\textbf{Fuel Increase} ($\mu_f = 1.20$, demand unchanged), and
+\textbf{Winter Season} (inland cities $+10$--$20\%$,
+coastal resorts $-20$--$30\%$, $\mu_f = 1.05$).
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_scenario.png}
   \caption{Scenario comparison: total cost and percentage deviation
-           from the base (Normal Season) result.}
+           from the Normal Season baseline.}
   \label{fig:scenario}
 \end{figure}
-
-The Fuel Increase scenario yields the largest cost increase
-($\approx +20\%$, proportional to the multiplier) because the cost model
-is linear in $p_f$.
-The Summer Season scenario raises total demand to $\approx 1{,}558$ units
-and shifts the cost curve due to longer average hauls to coastal resorts.
 
 %=======================================================================
 \section{Sensitivity Analysis}
 \label{sec:sensitivity}
 
-After solving, dual variables are extracted from PuLP via
-\texttt{constraint.pi} (shadow prices) and \texttt{variable.dj} (reduced costs).
-
-The \textbf{shadow price} $\pi_i$ of supply constraint $i$ equals the
-decrease in total cost achievable by relaxing that supply limit by one unit.
-The shadow price $\lambda_j$ of demand constraint $j$ equals the increase
-in total cost required to serve one additional unit of demand at warehouse $j$.
-
-The \textbf{reduced cost} $r_{ij}$ of a non-basic variable $x_{ij}$ equals
-the amount by which the unit cost $c_{ij}$ must decrease before route
-$(i,j)$ becomes part of the optimal basis.
+Dual variables are extracted via \texttt{constraint.pi} (shadow prices)
+and \texttt{variable.dj} (reduced costs) after solving.
+The shadow price of a supply constraint equals the cost reduction achievable
+by relaxing capacity by one unit; the shadow price of a demand constraint
+equals the cost increase required to serve one additional unit.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_sensitivity.png}
-  \caption{Shadow prices for supply nodes (top) and demand nodes (bottom),
-           and reduced costs for inactive routes (right).}
+  \caption{Shadow prices for supply and demand nodes; reduced costs for
+           inactive routes.}
   \label{fig:sensitivity}
 \end{figure}
 
-In the Normal Season base case, Antalya and Gaziantep show the highest
-demand shadow prices, indicating that a unit of additional demand at
-these locations would increase total cost most.
-Conversely, \.Istanbul has a near-zero supply shadow price, confirming
-that its large idle capacity is non-binding.
+In the base case, Antalya and Gaziantep show the highest demand shadow
+prices; \.Istanbul has a near-zero supply shadow price, confirming its
+large idle capacity is non-binding.
 
 %=======================================================================
 \section{Monte Carlo Simulation}
 \label{sec:montecarlo}
 
-To quantify cost risk under demand uncertainty, a Monte Carlo simulation
-draws $N$ independent realisations of the demand vector and solves the LP
-for each.
-Warehouse demand is modelled as a truncated normal distribution:
-
-\begin{equation}
-  \tilde{d}_j \sim \mathcal{TN}\!\left(d_j,\;(\mathrm{CV}\cdot d_j)^2,\;
-  \tfrac{d_j}{2},\; 2d_j\right)
-  \label{eq:mc}
-\end{equation}
-
-where $\mathrm{CV}$ (coefficient of variation) controls dispersion.
-The default settings are $N = 300$ and $\mathrm{CV} = 0.15$,
-producing a $\pm 15\%$ standard deviation.
-
-Key statistics extracted from the simulation:
-mean cost $\bar{Z}$, standard deviation $\sigma_Z$,
-5th and 95th percentile costs (risk range), and route reliability
-(fraction of iterations in which each route carries positive flow).
+Warehouse demand is modelled as a truncated normal:
+$\tilde{d}_j \sim \mathcal{TN}(d_j,\;(\text{CV}\cdot d_j)^2)$
+with default $N = 300$ iterations and $\text{CV} = 0.15$.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_montecarlo.png}
   \caption{Monte Carlo cost histogram (300 iterations, CV = 0.15)
-           with mean marked. Lower panel: route reliability by percentage
-           of iterations active.}
+           and route reliability heatmap.}
   \label{fig:montecarlo}
 \end{figure}
 
-Results show that the 90\% cost interval spans roughly
-$\pm 8$--$12\%$ around the deterministic optimum,
-and that core routes (e.g., Adana$\to$Gaziantep, Ankara$\to$Konya)
-maintain $>95\%$ reliability, while peripheral routes fluctuate.
+The 90\% cost interval spans $\pm 8$--$12\%$ around the deterministic
+optimum; core routes maintain $>95\%$ reliability.
 
 %=======================================================================
 \section{Multi-Objective Pareto Frontier}
 \label{sec:pareto}
 
-A decision maker may wish to reduce delivery time even at higher monetary
-cost.
-To explore this trade-off, a weighted-sum scalarisation sweeps
-$\alpha \in [0, 1]$ in $K = 12$ equally spaced steps, solving:
-
-\begin{equation}
-  \min\quad \alpha\, \hat{Z}_\text{cost} + (1-\alpha)\, \hat{Z}_\text{time}
-  \label{eq:pareto}
-\end{equation}
-
-where normalised objectives are:
-
-$$\hat{Z}_\text{cost} = \frac{\sum_{ij} c_{ij} x_{ij}}{500{,}000},
-\quad
-\hat{Z}_\text{time} = \frac{\sum_{ij} (d_{ij}/v)\, x_{ij}}{2{,}000}$$
-
-Each solve yields a cost--time pair; non-dominated pairs form the
-Pareto frontier.
+Weighted-sum scalarisation ($\alpha \in [0,1]$) solves:
+$\min\;\alpha\,\hat{Z}_\text{cost} + (1-\alpha)\,\hat{Z}_\text{time}$
+tracing non-dominated cost--time pairs.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{fig_pareto.png}
-  \caption{Pareto frontier: total cost (TL) vs.\ total weighted travel time
-           (h$\cdot$unit). Each marker corresponds to a different
-           $\alpha$ weight.}
+  \caption{Pareto frontier: total cost (TL) vs.\ total weighted travel
+           time (h$\cdot$unit).}
   \label{fig:pareto}
 \end{figure}
 
-The frontier reveals that significant time savings (e.g., $-15\%$)
-are achievable with only a modest cost premium ($\approx +5\%$) at
-$\alpha \approx 0.7$, while pushing toward $\alpha = 0$ (pure time
-minimisation) incurs disproportionately large cost increases.
+%=======================================================================
+\section{Extensions}
+\label{sec:extensions}
+
+\subsection{Multi-Period Planning}
+
+The four-quarter LP adds inventory variables $\text{inv}_{i,t} \geq 0$
+and balance constraints:
+$\text{inv}_{i,t} = \text{inv}_{i,t-1} + \text{prod}_i - \sum_j x_{ijt}$.
+Seasonal demand multipliers per scenario shift quarterly load, and
+holding costs $h$ penalise excess inventory.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_multiperiod.png}
+  \caption{Multi-period LP: stacked transport/holding costs per quarter
+           and end-of-quarter inventory (right axis).}
+  \label{fig:multiperiod}
+\end{figure}
+
+\subsection{Demand Forecasting}
+
+Holt's double-exponential smoothing is applied to eight quarters of
+synthetic historical demand generated with trend ($\times 0.93$--$1.07$),
+seasonality ($\times [1.00, 1.10, 1.20, 0.90]$), and Gaussian noise.
+Level $L_t$ and trend $T_t$ are updated as:
+\begin{align*}
+  L_t &= \alpha x_t + (1-\alpha)(L_{t-1} + T_{t-1}) \\
+  T_t &= \beta(L_t - L_{t-1}) + (1-\beta)T_{t-1}
+\end{align*}
+with $h$-step forecasts $\hat{x}_{t+h} = L_t + h\,T_t$.
+Default parameters $\alpha = 0.40$, $\beta = 0.15$ are user-adjustable.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_forecast.png}
+  \caption{Holt smoothing: historical demand (markers), fitted levels
+           (dotted), and 4-quarter forecast (dashed) per warehouse.}
+  \label{fig:forecast}
+\end{figure}
+
+\subsection{Disruption Simulation}
+
+The disruption module sets selected source capacities to zero
+(or scales them by a user-specified fraction $\rho \in (0,1)$)
+and re-solves the LP.
+The cost delta $\Delta Z = Z_\text{dis} - Z_\text{base}$ and the sets
+of lost and new routes are reported, together with a colour-coded map
+(blue = unchanged, red = lost, green = new routes).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_disruption.png}
+  \caption{Disruption simulation: cost delta metrics and colour-coded
+           route map after disabling a production centre.}
+  \label{fig:disruption}
+\end{figure}
+
+\subsection{P-Median Facility Location}
+
+Given $M$ candidate city locations and demand weights $d_j$,
+the p-median MIP selects $p$ facilities to minimise total
+demand-weighted distance:
+
+\begin{equation}
+  \min\;\sum_{i \in J}\sum_{j \in C} d_i \cdot \delta_{ij} \cdot x_{ij}
+\end{equation}
+\begin{align*}
+  \sum_{j} y_j &= p, \quad
+  \sum_{j} x_{ij} = 1\;\forall i, \quad
+  x_{ij} \leq y_j\;\forall i,j \\
+  x_{ij},\, y_j &\in \{0,1\}
+\end{align*}
+
+where $C$ is the set of 13 candidate cities (5 sources + 8 warehouses),
+$\delta_{ij}$ is the haversine distance, and $y_j = 1$ if facility $j$
+is opened.
+An elbow curve plots total weighted distance vs.\ $p$ to guide selection.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig_location.png}
+  \caption{P-Median result ($p = 3$): selected hubs (large coloured
+           circles), demand node assignments (coloured lines), and
+           elbow curve (inset).}
+  \label{fig:location}
+\end{figure}
 
 %=======================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
 This paper presented the Turkey Logistics DSS, an end-to-end transportation
-optimisation platform combining classical LP with four decision-support
-analytics modules.
-The system demonstrates that:
+optimisation platform combining classical LP with eight decision-support
+extensions.
+The system demonstrates:
 \begin{enumerate}
   \item LP-based transportation models can be embedded in interactive
-        web applications without sacrificing solver performance;
-  \item scenario managers and shadow-price dashboards substantially reduce
-        the cognitive overhead of what-if analysis;
-  \item Monte Carlo simulation closes the gap between deterministic optima
-        and real-world demand uncertainty;
-  \item weighted-sum Pareto enumeration provides intuitive, actionable
-        cost-versus-time trade-off information.
+        web dashboards without sacrificing solver performance;
+  \item shadow-price dashboards and scenario managers substantially
+        reduce the cognitive overhead of what-if analysis;
+  \item Monte Carlo simulation and Holt forecasting bridge the gap
+        between deterministic optima and real-world demand variability;
+  \item supply disruption simulation provides rapid re-routing insights
+        without manual replanning;
+  \item the p-median MIP offers a principled alternative to heuristic
+        hub-selection methods;
+  \item a REST API (FastAPI) and a pytest suite (124 tests) make the
+        platform suitable for integration in larger supply-chain pipelines.
 \end{enumerate}
-
-Future work includes integrating live fuel price feeds from the Turkish
-Energy Market Regulatory Authority (EPDK), incorporating stochastic road
-conditions via updated OSRM queries, and extending the model to a
-multi-period planning horizon.
 
 %=======================================================================
 \begin{thebibliography}{9}
@@ -526,8 +511,7 @@ Streamlit Inc.,
 \bibitem{osrm}
 D.~Luxen and C.~Vetter,
 ``Real-time routing with OpenStreetMap data,''
-in \textit{Proc. 19th ACM SIGSPATIAL Int. Conf. Advances in
-Geographic Information Systems}, Chicago, IL, 2011, pp.~513--516.
+in \textit{Proc. 19th ACM SIGSPATIAL}, Chicago, IL, 2011, pp.~513--516.
 
 \bibitem{folium}
 R.~Story,
@@ -543,6 +527,22 @@ Montr\'{e}al, QC, 2015. [Online]. Available: \url{https://plotly.com}
 Docker Inc.,
 ``Docker: Accelerated Container Application Development,''
 2024. [Online]. Available: \url{https://www.docker.com}
+
+\bibitem{ipcc}
+IPCC,
+``2006 IPCC Guidelines for National Greenhouse Gas Inventories,
+Volume 2: Energy,'' IGES, Japan, 2006.
+
+\bibitem{holt}
+C.~C. Holt,
+``Forecasting seasonals and trends by exponentially weighted moving averages,''
+\textit{Int. J. Forecast.}, vol.~20, no.~1, pp.~5--10, 2004.
+
+\bibitem{hakimi}
+S.~L. Hakimi,
+``Optimum locations of switching centers and the absolute centers and medians
+of a graph,''
+\textit{Oper. Res.}, vol.~12, no.~3, pp.~450--459, 1964.
 
 \end{thebibliography}
 

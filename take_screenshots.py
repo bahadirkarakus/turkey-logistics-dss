@@ -1,5 +1,5 @@
 """
-Automated screenshot capture for IEEE report figures.
+Automated screenshot capture for IEEE report and README figures.
 Runs against the local Streamlit app on port 8502.
 """
 
@@ -9,19 +9,10 @@ from playwright.async_api import async_playwright
 BASE = "http://localhost:8502"
 OUT  = "/Users/bahadirkarakus/Desktop/turkey_logistics"
 
-TABS = [
-    "🗺️ Map",
-    "📦 Optimal Plan",
-    "💰 Cost Analysis",
-    "📊 Scenario Comparison",
-    "🎲 Monte Carlo",
-    "🔍 Sensitivity Analysis",
-    "🎯 Multi-Objective",
-]
 
 async def click_tab(page, label):
     await page.get_by_role("tab", name=label).click()
-    await page.wait_for_timeout(1800)
+    await page.wait_for_timeout(2000)
 
 
 async def main():
@@ -34,40 +25,39 @@ async def main():
         await page.goto(BASE, wait_until="networkidle", timeout=30000)
         await page.wait_for_timeout(3000)
 
-        # ── fig_interface: full dashboard before solving ─────────────────────
-        await page.screenshot(path=f"{OUT}/fig_interface.png", full_page=False)
+        # ── fig_interface: dashboard before solving ───────────────────────────
+        await page.screenshot(path=f"{OUT}/fig_interface.png")
         print("fig_interface.png ✓")
 
-        # ── Click Run Optimisation ───────────────────────────────────────────
-        run_btn = page.get_by_role("button", name="▶ Run Optimisation")
+        # ── Run Optimization ─────────────────────────────────────────────────
+        run_btn = page.get_by_role("button", name="▶ Run Optimization")
         await run_btn.click()
-        await page.wait_for_timeout(4000)   # wait for solve + render
+        await page.wait_for_timeout(4000)
 
-        # ── fig_map ──────────────────────────────────────────────────────────
+        # ── fig_map ───────────────────────────────────────────────────────────
         await click_tab(page, "🗺️ Map")
-        await page.wait_for_timeout(2000)
-        await page.screenshot(path=f"{OUT}/fig_map.png", full_page=False)
+        await page.wait_for_timeout(2500)
+        await page.screenshot(path=f"{OUT}/fig_map.png")
         print("fig_map.png ✓")
 
-        # ── fig_sankey ───────────────────────────────────────────────────────
+        # ── fig_sankey ────────────────────────────────────────────────────────
         await click_tab(page, "📦 Optimal Plan")
-        await page.wait_for_timeout(1500)
-        await page.screenshot(path=f"{OUT}/fig_sankey.png", full_page=False)
+        await page.wait_for_timeout(2000)
+        await page.screenshot(path=f"{OUT}/fig_sankey.png")
         print("fig_sankey.png ✓")
 
-        # ── fig_cost (cost analysis) ─────────────────────────────────────────
+        # ── fig_cost ──────────────────────────────────────────────────────────
         await click_tab(page, "💰 Cost Analysis")
-        await page.wait_for_timeout(1500)
-        await page.screenshot(path=f"{OUT}/fig_cost.png", full_page=False)
+        await page.wait_for_timeout(2000)
+        await page.screenshot(path=f"{OUT}/fig_cost.png")
         print("fig_cost.png ✓")
 
-        # ── Save result, then switch to Summer Season, save again ────────────
+        # ── Scenario comparison ───────────────────────────────────────────────
         save_btn = page.get_by_role("button", name="💾 Save Result")
         await save_btn.click()
         await page.wait_for_timeout(800)
 
-        # Change to Summer Season via Streamlit custom combobox
-        sel = page.get_by_role("combobox")
+        sel = page.get_by_role("combobox").first
         await sel.click()
         await page.wait_for_timeout(600)
         await page.get_by_role("option", name="Summer Season").click()
@@ -77,16 +67,15 @@ async def main():
         await save_btn.click()
         await page.wait_for_timeout(600)
 
-        # ── Compare saved → fig_scenario ─────────────────────────────────────
         compare_btn = page.get_by_role("button", name="📊 Compare Saved")
         await compare_btn.click()
         await page.wait_for_timeout(1500)
         await click_tab(page, "📊 Scenario Comparison")
         await page.wait_for_timeout(1500)
-        await page.screenshot(path=f"{OUT}/fig_scenario.png", full_page=False)
+        await page.screenshot(path=f"{OUT}/fig_scenario.png")
         print("fig_scenario.png ✓")
 
-        # Back to Normal Season for remaining analytics
+        # Back to Normal Season
         await sel.click()
         await page.wait_for_timeout(600)
         await page.get_by_role("option", name="Normal Season").click()
@@ -94,29 +83,66 @@ async def main():
         await run_btn.click()
         await page.wait_for_timeout(4000)
 
-        # ── fig_sensitivity ──────────────────────────────────────────────────
+        # ── fig_sensitivity ───────────────────────────────────────────────────
         await click_tab(page, "🔍 Sensitivity Analysis")
-        sens_btn = page.get_by_role("button", name="🔍 Run Sensitivity Analysis")
-        await sens_btn.click()
+        await page.get_by_role("button", name="🔍 Run Sensitivity Analysis").click()
         await page.wait_for_timeout(3000)
-        await page.screenshot(path=f"{OUT}/fig_sensitivity.png", full_page=False)
+        await page.screenshot(path=f"{OUT}/fig_sensitivity.png")
         print("fig_sensitivity.png ✓")
 
-        # ── fig_montecarlo ───────────────────────────────────────────────────
+        # ── fig_montecarlo ────────────────────────────────────────────────────
         await click_tab(page, "🎲 Monte Carlo")
-        mc_btn = page.get_by_role("button", name="🎲 Run Simulation")
-        await mc_btn.click()
-        await page.wait_for_timeout(15000)   # 300 iterations
-        await page.screenshot(path=f"{OUT}/fig_montecarlo.png", full_page=False)
+        await page.get_by_role("button", name="🎲 Run Simulation").click()
+        await page.wait_for_timeout(15000)
+        await page.screenshot(path=f"{OUT}/fig_montecarlo.png")
         print("fig_montecarlo.png ✓")
 
-        # ── fig_pareto ───────────────────────────────────────────────────────
+        # ── fig_pareto ────────────────────────────────────────────────────────
         await click_tab(page, "🎯 Multi-Objective")
-        pareto_btn = page.get_by_role("button", name="🎯 Compute Pareto")
-        await pareto_btn.click()
+        await page.get_by_role("button", name="🎯 Compute Pareto").click()
         await page.wait_for_timeout(5000)
-        await page.screenshot(path=f"{OUT}/fig_pareto.png", full_page=False)
+        await page.screenshot(path=f"{OUT}/fig_pareto.png")
         print("fig_pareto.png ✓")
+
+        # ── fig_multiperiod ───────────────────────────────────────────────────
+        await click_tab(page, "📅 Multi-Period")
+        await page.wait_for_timeout(1000)
+        mp_sel = page.get_by_role("combobox").nth(1)
+        await mp_sel.click()
+        await page.wait_for_timeout(500)
+        await page.get_by_role("option", name="Summer Season").click()
+        await page.wait_for_timeout(500)
+        await page.get_by_role("button", name="▶ Solve Multi-Period").click()
+        await page.wait_for_timeout(4000)
+        await page.screenshot(path=f"{OUT}/fig_multiperiod.png")
+        print("fig_multiperiod.png ✓")
+
+        # ── fig_forecast ──────────────────────────────────────────────────────
+        await page.get_by_text("📈 Demand Forecast").click()
+        await page.wait_for_timeout(800)
+        await page.get_by_role("button", name="📊 Generate Forecast").click()
+        await page.wait_for_timeout(2500)
+        await page.screenshot(path=f"{OUT}/fig_forecast.png")
+        print("fig_forecast.png ✓")
+
+        # ── fig_disruption ────────────────────────────────────────────────────
+        await click_tab(page, "⚠️ Disruption")
+        await page.wait_for_timeout(1000)
+        # Disable Bursa
+        await page.get_by_label("Bursa").check()
+        await page.wait_for_timeout(500)
+        await page.get_by_role("button", name="⚠️ Simulate Disruption").click()
+        await page.wait_for_timeout(5000)
+        await page.screenshot(path=f"{OUT}/fig_disruption.png")
+        print("fig_disruption.png ✓")
+
+        # ── fig_location ──────────────────────────────────────────────────────
+        await click_tab(page, "📍 Location")
+        await page.wait_for_timeout(1000)
+        await page.get_by_role("button", name="📍 Find Optimal Locations").click()
+        await page.wait_for_timeout(8000)
+        await page.screenshot(path=f"{OUT}/fig_location.png")
+        print("fig_location.png ✓")
 
         await browser.close()
         print("\nAll screenshots saved.")
