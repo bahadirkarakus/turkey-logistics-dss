@@ -1,6 +1,6 @@
 """
 Turkey Logistics DSS — Streamlit App
-Transportation problem optimisation tool (Turkey logistics network)
+Transportation problem optimization tool (Turkey logistics network)
 """
 
 import streamlit as st
@@ -121,7 +121,7 @@ with st.sidebar:
     use_custom = st.checkbox("Apply custom parameters", value=False)
 
     st.divider()
-    run_btn  = st.button("▶ Run Optimisation", type="primary", use_container_width=True)
+    run_btn  = st.button("▶ Run Optimization", type="primary", use_container_width=True)
     save_btn = st.button("💾 Save Result", use_container_width=True)
     compare_btn = st.button("📊 Compare Saved", use_container_width=True)
 
@@ -194,7 +194,7 @@ if save_btn:
         st.session_state.all_results = st.session_state.saved_scenarios
         st.sidebar.success(f"✓ '{key}' saved")
     else:
-        st.sidebar.warning("Run optimisation first.")
+        st.sidebar.warning("Run optimization first.")
 
 if compare_btn:
     if st.session_state.saved_scenarios:
@@ -288,7 +288,7 @@ with tab_map:
         default_map = build_map({}, {s: SOURCES[s]["capacity"] for s in SOURCES},
                                  {w: WAREHOUSES[w]["demand"] for w in WAREHOUSES})
         st_folium(default_map, width="100%", height=540)
-        st.info("Run optimisation → routes appear on the map.")
+        st.info("Run optimization → routes appear on the map.")
 
 # ── TAB 2: OPTIMAL PLAN ─────────────────────────────────────────────────────
 with tab_plan:
@@ -367,7 +367,7 @@ with tab_plan:
         st.success(f"**Minimum Total Cost: ₺{res['total_cost']:,.2f}**")
 
     else:
-        st.info("Select a scenario from the sidebar and press **Run Optimisation**.")
+        st.info("Select a scenario from the sidebar and press **Run Optimization**.")
 
 # ── TAB 3: COST ANALYSIS ────────────────────────────────────────────────────
 with tab_cost:
@@ -390,7 +390,7 @@ with tab_cost:
         ).T
         st.dataframe(df_cost, use_container_width=True)
     else:
-        st.info("Run optimisation first.")
+        st.info("Run optimization first.")
 
 # ── TAB 4: SCENARIO COMPARISON ──────────────────────────────────────────────
 with tab_scenario:
@@ -424,7 +424,7 @@ with tab_scenario:
                          for (s, w), v in r["shipments"].items()]
                 st.dataframe(pd.DataFrame(rows2), hide_index=True, use_container_width=True)
     else:
-        st.info("Select scenario → Run Optimisation → Save Result · After saving multiple scenarios press Compare Saved.")
+        st.info("Select scenario → Run Optimization → Save Result · After saving multiple scenarios press Compare Saved.")
 
 # ── TAB 5: MONTE CARLO ──────────────────────────────────────────────────────
 with tab_mc:
@@ -451,7 +451,7 @@ with tab_mc:
                     demand_cv=cv,
                 )
         else:
-            st.warning("Run Optimisation first.")
+            st.warning("Run Optimization first.")
 
     mc = st.session_state.mc_result
     if mc:
@@ -505,7 +505,7 @@ with tab_mc:
         )
         st.plotly_chart(fig_rel, use_container_width=True)
     else:
-        st.info("Select a scenario, run optimisation, then start the simulation.")
+        st.info("Select a scenario, run optimization, then start the simulation.")
 
 
 # ── TAB 6: SENSITIVITY ANALYSIS ─────────────────────────────────────────────
@@ -524,7 +524,7 @@ with tab_sens:
                     st.session_state.cost_used,
                 )
         else:
-            st.warning("Run Optimisation first.")
+            st.warning("Run Optimization first.")
 
     sens = st.session_state.sens_result
     if sens:
@@ -561,7 +561,7 @@ with tab_sens:
             ]
             st.dataframe(pd.DataFrame(rc_rows), hide_index=True, use_container_width=True)
     else:
-        st.info("Run optimisation, then start the sensitivity analysis.")
+        st.info("Run optimization, then start the sensitivity analysis.")
 
 
 # ── TAB 7: MULTI-OBJECTIVE PARETO ───────────────────────────────────────────
@@ -584,7 +584,7 @@ with tab_pareto:
                     n_points=n_pts,
                 )
         else:
-            st.warning("Run Optimisation first.")
+            st.warning("Run Optimization first.")
 
     par = st.session_state.pareto_result
     if par and par["pareto"]:
@@ -626,7 +626,7 @@ with tab_pareto:
             hide_index=True, use_container_width=True,
         )
     else:
-        st.info("Run optimisation, then press Compute Pareto.")
+        st.info("Run optimization, then press Compute Pareto.")
 
 
 # ── PDF EXPORT (visible in sidebar after result exists) ─────────────────────

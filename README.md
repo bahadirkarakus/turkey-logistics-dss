@@ -1,6 +1,6 @@
 # 🚛 Turkey Logistics Decision-Support System
 
-A **portfolio-quality transportation optimisation tool** for a Turkish logistics network, built with Python, PuLP, and Streamlit.
+A **portfolio-quality transportation optimization tool** for a Turkish logistics network, built with Python, PuLP, and Streamlit.
 
 🔗 **Live demo:** [turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app](https://turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app)
 
@@ -125,7 +125,7 @@ docker run -p 8501:8501 turkey-logistics
 
 | Layer | Tools |
 |---|---|
-| Optimisation | PuLP 2.8 · CBC Simplex Solver |
+| Optimization | PuLP 2.8 · CBC Simplex Solver |
 | Web App | Streamlit |
 | Maps | Folium + AntPath + streamlit-folium |
 | Charts | Plotly (Sankey · Heatmap · Bar · Scatter) |

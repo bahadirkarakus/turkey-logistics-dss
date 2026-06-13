@@ -28,7 +28,7 @@ class _Report(FPDF):
         self.set_fill_color(15, 23, 42)
         self.set_text_color(255, 255, 255)
         self.set_font("Helvetica", "B", 13)
-        self.cell(0, 11, "Turkey Logistics DSS - Optimisation Report",
+        self.cell(0, 11, "Turkey Logistics DSS - Optimization Report",
                   fill=True, align="C")
         self.ln(3)
         self.set_text_color(0, 0, 0)
