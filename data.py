@@ -60,7 +60,25 @@ PARAMS = {
     "avg_speed_kmh": 80.0,               # km/h
     "load_fee_tl": 200.0,                # TL fixed loading/unloading
     "truck_capacity_units": 25,          # units per truck
+    "co2_kg_per_litre": 2.68,            # kg CO₂ per litre diesel (IPCC)
 }
+
+
+def compute_co2_matrix() -> dict:
+    """Returns CO₂ emissions (kg per unit shipped) for each (source, warehouse) pair."""
+    p          = PARAMS
+    warehouses = list(WAREHOUSES.keys())
+    sources    = list(SOURCES.keys())
+    co2        = {}
+    for i, src in enumerate(sources):
+        co2[src] = {}
+        for j, wh in enumerate(warehouses):
+            d               = DISTANCES[src][j]
+            litres_per_trip = d * (p["fuel_consumption_per_100km"] / 100)
+            kg_per_trip     = litres_per_trip * p["co2_kg_per_litre"]
+            co2[src][wh]    = round(kg_per_trip / p["truck_capacity_units"], 3)
+    return co2
+
 
 # ---------------------------------------------------------------------------
 # SCENARIOS

@@ -10,7 +10,7 @@ from streamlit_folium import st_folium
 
 from data import (
     SOURCES, WAREHOUSES, SCENARIOS,
-    get_scenario_data, compute_cost_matrix,
+    get_scenario_data, compute_cost_matrix, compute_co2_matrix,
     fetch_real_distances,
 )
 from model import solve, formulation_text
@@ -20,6 +20,7 @@ from visualization import (
 )
 from analytics import sensitivity_analysis, monte_carlo, multi_objective_pareto
 from report import generate_pdf
+from excel_export import generate_excel
 
 # ---------------------------------------------------------------------------
 # PAGE CONFIG
@@ -218,9 +219,10 @@ st.divider()
 # ---------------------------------------------------------------------------
 res = st.session_state.result
 
-c1, c2, c3, c4, c5 = st.columns(5)
-total_supply = sum(SOURCES[s]["capacity"] for s in SOURCES)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+total_supply      = sum(SOURCES[s]["capacity"] for s in SOURCES)
 total_demand_base = sum(WAREHOUSES[w]["demand"] for w in WAREHOUSES)
+_co2_matrix       = compute_co2_matrix()
 
 with c1:
     cost_val = f"₺{res['total_cost']:,.0f}" if res else "—"
@@ -231,6 +233,22 @@ with c1:
     </div>""", unsafe_allow_html=True)
 
 with c2:
+    if res:
+        total_co2 = sum(
+            _co2_matrix[s][w] * v
+            for (s, w), v in res["shipments"].items()
+        )
+        co2_val = f"{total_co2:,.0f} kg"
+        co2_sub = f"{total_co2/1000:.2f} t CO₂"
+    else:
+        co2_val, co2_sub = "—", "not solved yet"
+    st.markdown(f"""<div class="kpi-card">
+        <div class="kpi-label">Total CO₂</div>
+        <div class="kpi-value" style="font-size:1.2rem">{co2_val}</div>
+        <div class="kpi-sub">{co2_sub}</div>
+    </div>""", unsafe_allow_html=True)
+
+with c3:
     scen_label = st.session_state.scenario_run or "—"
     st.markdown(f"""<div class="kpi-card">
         <div class="kpi-label">Active Scenario</div>
@@ -238,22 +256,22 @@ with c2:
         <div class="kpi-sub">&nbsp;</div>
     </div>""", unsafe_allow_html=True)
 
-with c3:
+with c4:
     routes_n = len(res["shipments"]) if res else "—"
     st.markdown(f"""<div class="kpi-card">
         <div class="kpi-label">Active Routes</div>
         <div class="kpi-value">{routes_n}</div>
-        <div class="kpi-sub">of 15 possible routes</div>
+        <div class="kpi-sub">of 40 possible routes</div>
     </div>""", unsafe_allow_html=True)
 
-with c4:
+with c5:
     st.markdown(f"""<div class="kpi-card">
         <div class="kpi-label">Total Supply</div>
         <div class="kpi-value">{total_supply:,}</div>
         <div class="kpi-sub">units capacity</div>
     </div>""", unsafe_allow_html=True)
 
-with c5:
+with c6:
     dem_used = sum(st.session_state.demand_used.values()) if st.session_state.demand_used else total_demand_base
     st.markdown(f"""<div class="kpi-card">
         <div class="kpi-label">Total Demand</div>
@@ -354,17 +372,39 @@ with tab_plan:
 
         detail_rows = []
         for (s, w), units in sorted(ships.items(), key=lambda x: -x[1]):
-            unit_c  = cost[s][w]
-            total_c = round(unit_c * units, 0)
+            unit_c   = cost[s][w]
+            total_c  = round(unit_c * units, 0)
+            co2_unit = _co2_matrix[s][w]
+            co2_tot  = round(co2_unit * units, 1)
             detail_rows.append({
                 "Source": s, "Warehouse": w,
-                "Sevkiyat (units)": int(units),
+                "Shipment (units)": int(units),
                 "Unit Cost (TL)": f"₺{unit_c:,.2f}",
                 "Total Cost (TL)": f"₺{total_c:,.0f}",
+                "CO₂/unit (kg)": f"{co2_unit:.3f}",
+                "Total CO₂ (kg)": f"{co2_tot:,.1f}",
             })
         st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
-        st.success(f"**Minimum Total Cost: ₺{res['total_cost']:,.2f}**")
+        total_co2 = sum(_co2_matrix[s][w] * v for (s, w), v in ships.items())
+        col_cost, col_co2 = st.columns(2)
+        col_cost.success(f"**Minimum Total Cost: ₺{res['total_cost']:,.2f}**")
+        col_co2.info(f"**Total CO₂ Emissions: {total_co2:,.1f} kg ({total_co2/1000:.2f} t)**")
+
+        # Excel download
+        st.divider()
+        excel_bytes = generate_excel(
+            res, sup, dem, cost, _co2_matrix,
+            st.session_state.scenario_run,
+            saved_scenarios=st.session_state.saved_scenarios or None,
+        )
+        st.download_button(
+            label="📥 Download Excel Report (.xlsx)",
+            data=excel_bytes,
+            file_name=f"logistics_{st.session_state.scenario_run.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
     else:
         st.info("Select a scenario from the sidebar and press **Run Optimization**.")
