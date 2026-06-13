@@ -41,25 +41,70 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
+    /* ── Base ──────────────────────────────────────────────────────────── */
     .main { background-color: #0e1117; }
-    .block-container { padding-top: 1rem; }
+    .block-container {
+        padding-top: 1rem;
+        overflow-x: hidden;   /* prevent horizontal scroll on mobile */
+        max-width: 100%;
+    }
+
+    /* ── KPI grid — 6 cols desktop, 3 tablet, 2 phone ─────────────────── */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    @media (max-width: 1024px) {
+        .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    }
+
+    /* ── KPI card ──────────────────────────────────────────────────────── */
     .kpi-card {
         background: linear-gradient(135deg, #1a1f2e, #252d3d);
         border: 1px solid #2d3748;
         border-radius: 12px;
-        padding: 16px 20px;
+        padding: 14px 16px;
         text-align: center;
-        margin-bottom: 4px;
+        min-width: 0;          /* allow grid cells to shrink */
+        word-break: break-word;
     }
-    .kpi-label { color: #8892a4; font-size: 0.78rem; text-transform: uppercase;
-                 letter-spacing: 0.05em; margin-bottom: 4px; }
-    .kpi-value { color: #e2e8f0; font-size: 1.55rem; font-weight: 700; }
-    .kpi-sub   { color: #68d391; font-size: 0.78rem; margin-top: 2px; }
+    .kpi-label {
+        color: #8892a4; font-size: 0.72rem; text-transform: uppercase;
+        letter-spacing: 0.05em; margin-bottom: 4px;
+    }
+    .kpi-value { color: #e2e8f0; font-size: 1.4rem; font-weight: 700; }
+    .kpi-sub   { color: #68d391; font-size: 0.72rem; margin-top: 2px; }
+
+    @media (max-width: 600px) {
+        .kpi-value { font-size: 1.1rem; }
+        .kpi-label { font-size: 0.65rem; }
+    }
+
+    /* ── Section header ────────────────────────────────────────────────── */
     .section-header {
         color: #e2e8f0; font-size: 1.05rem; font-weight: 600;
-        border-left: 3px solid #3182ce; padding-left: 10px; margin: 14px 0 8px 0;
+        border-left: 3px solid #3182ce; padding-left: 10px;
+        margin: 14px 0 8px 0;
     }
+
+    /* ── Tabs — scrollable on small screens ───────────────────────────── */
     div[data-testid="stTab"] button { font-size: 0.9rem; }
+    div[data-testid="stTabs"] [role="tablist"] {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    div[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar { display: none; }
+
+    /* ── Tables & dataframes — don't overflow ──────────────────────────── */
+    .stDataFrame { overflow-x: auto; }
+    iframe { max-width: 100% !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -235,65 +280,57 @@ st.divider()
 # ---------------------------------------------------------------------------
 res = st.session_state.result
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
 total_supply      = sum(SOURCES[s]["capacity"] for s in SOURCES)
 total_demand_base = sum(WAREHOUSES[w]["demand"] for w in WAREHOUSES)
 _co2_matrix       = compute_co2_matrix()
 
-with c1:
-    cost_val = f"₺{res['total_cost']:,.0f}" if res else "—"
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Minimum Cost</div>
-        <div class="kpi-value">{cost_val}</div>
-        <div class="kpi-sub">{'Optimal ✓' if res else 'Not solved yet'}</div>
-    </div>""", unsafe_allow_html=True)
+# KPI values
+cost_val   = f"₺{res['total_cost']:,.0f}" if res else "—"
+cost_sub   = "Optimal ✓" if res else "Not solved yet"
+if res:
+    _total_co2 = sum(_co2_matrix[s][w] * v for (s, w), v in res["shipments"].items())
+    co2_val, co2_sub = f"{_total_co2:,.0f} kg", f"{_total_co2/1000:.2f} t CO₂"
+else:
+    co2_val, co2_sub = "—", "not solved yet"
+scen_label = st.session_state.scenario_run or "—"
+routes_n   = len(res["shipments"]) if res else "—"
+dem_used   = sum(st.session_state.demand_used.values()) if st.session_state.demand_used else total_demand_base
 
-with c2:
-    if res:
-        total_co2 = sum(
-            _co2_matrix[s][w] * v
-            for (s, w), v in res["shipments"].items()
-        )
-        co2_val = f"{total_co2:,.0f} kg"
-        co2_sub = f"{total_co2/1000:.2f} t CO₂"
-    else:
-        co2_val, co2_sub = "—", "not solved yet"
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Total CO₂</div>
-        <div class="kpi-value" style="font-size:1.2rem">{co2_val}</div>
-        <div class="kpi-sub">{co2_sub}</div>
-    </div>""", unsafe_allow_html=True)
-
-with c3:
-    scen_label = st.session_state.scenario_run or "—"
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Active Scenario</div>
-        <div class="kpi-value" style="font-size:1.1rem">{scen_label}</div>
-        <div class="kpi-sub">&nbsp;</div>
-    </div>""", unsafe_allow_html=True)
-
-with c4:
-    routes_n = len(res["shipments"]) if res else "—"
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Active Routes</div>
-        <div class="kpi-value">{routes_n}</div>
-        <div class="kpi-sub">of 40 possible routes</div>
-    </div>""", unsafe_allow_html=True)
-
-with c5:
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Total Supply</div>
-        <div class="kpi-value">{total_supply:,}</div>
-        <div class="kpi-sub">units capacity</div>
-    </div>""", unsafe_allow_html=True)
-
-with c6:
-    dem_used = sum(st.session_state.demand_used.values()) if st.session_state.demand_used else total_demand_base
-    st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Total Demand</div>
-        <div class="kpi-value">{dem_used:,}</div>
-        <div class="kpi-sub">units</div>
-    </div>""", unsafe_allow_html=True)
+# Single HTML block — CSS Grid handles responsive layout
+st.markdown(f"""
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Minimum Cost</div>
+    <div class="kpi-value">{cost_val}</div>
+    <div class="kpi-sub">{cost_sub}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total CO₂</div>
+    <div class="kpi-value" style="font-size:1.15rem">{co2_val}</div>
+    <div class="kpi-sub">{co2_sub}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Active Scenario</div>
+    <div class="kpi-value" style="font-size:1.05rem">{scen_label}</div>
+    <div class="kpi-sub">&nbsp;</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Active Routes</div>
+    <div class="kpi-value">{routes_n}</div>
+    <div class="kpi-sub">of 40 possible</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Supply</div>
+    <div class="kpi-value">{total_supply:,}</div>
+    <div class="kpi-sub">units capacity</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Demand</div>
+    <div class="kpi-value">{dem_used:,}</div>
+    <div class="kpi-sub">units</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("")
 
