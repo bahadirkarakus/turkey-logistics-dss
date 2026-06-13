@@ -2,7 +2,7 @@
 
 A **portfolio-quality transportation optimisation tool** for a Turkish logistics network, built with Python, PuLP, and Streamlit.
 
-🔗 **Live demo:** [turkey-logistics-dss-33hou3yq4gqkhaiejjr.streamlit.app](https://turkey-logistics-dss-33hou3yq4gqkhaiejjr.streamlit.app)
+🔗 **Live demo:** [turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app](https://turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app)
 
 ---
 
