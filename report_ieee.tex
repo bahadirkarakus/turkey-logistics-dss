@@ -11,6 +11,10 @@
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 
+% Suppress underfull hbox warnings from tight IEEE two-column layout
+\setlength{\emergencystretch}{5em}
+\tolerance=2000
+
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
@@ -62,9 +66,9 @@ Monte Carlo simulation, Pareto frontier, Streamlit, logistics optimisation
 
 Efficient freight distribution is a critical challenge for manufacturers
 operating national supply chains.
-Turkey's geography---spanning Thrace, the Aegean, central Anatolia,
-and the Black Sea and Mediterranean coasts---creates substantial
-variation in transport distances, road tolls, and seasonal demand patterns.
+Turkey's geography---spanning Thrace, the Aegean, central Anatolia, the
+Black Sea coast, and the Mediterranean---creates substantial variation in
+transport distances, road tolls, and seasonal demand patterns.
 Practitioners often resort to manual allocation or heuristic spreadsheet
 tools that cannot guarantee optimality or quantify the cost of uncertainty.
 
@@ -103,10 +107,10 @@ Section~\ref{sec:conclusion} concludes.
 \subsection{Network Structure}
 
 The logistics network consists of a set of production centres
-$I = \{\text{\.Istanbul, Ankara, \.Izmir, Bursa, Adana}\}$ and
+$I = \{$\.Istanbul, Ankara, \.Izmir, Bursa, Adana$\}$ and
 a set of warehouses
-$J = \{\text{Konya, Kayseri, Trabzon, Gaziantep, Antalya, Samsun,}$
-$\text{Eski\c{s}ehir, Diyarbak\i r}\}$.
+$J = \{$Konya, Kayseri, Trabzon, Gaziantep, Antalya,
+Samsun, Eski\c{s}ehir, Diyarbak\i r$\}$.
 Each production centre $i \in I$ has a fixed supply capacity $s_i$ (units),
 and each warehouse $j \in J$ has a demand $d_j$ (units).
 The network is \emph{unbalanced} with total supply exceeding total demand
@@ -332,8 +336,8 @@ Four predefined scenarios capture common operating conditions:
 
 \begin{itemize}
   \item \textbf{Normal Season}: base demand, $\mu_f = 1.0$.
-  \item \textbf{Summer Season}: Antalya demand $+40\%$, Trabzon $+20\%$,
-        Samsun $+15\%$; fuel unchanged.
+  \item \textbf{Summer Season}: Antalya $+40\%$, Trabzon $+20\%$,
+        Samsun $+15\%$ demand; fuel unchanged.
   \item \textbf{Fuel Increase (+20\%)}: $\mu_f = 1.20$; demand unchanged.
   \item \textbf{Winter Season}: inland cities up ($+10$--$20\%$),
         coastal resorts down ($-20$--$30\%$); $\mu_f = 1.05$.
@@ -364,9 +368,8 @@ and shifts the cost curve due to longer average hauls to coastal resorts.
 \section{Sensitivity Analysis}
 \label{sec:sensitivity}
 
-After solving the LP, the dual variables are extracted from PuLP via
-\texttt{constraint.pi} (shadow prices) and \texttt{variable.dj}
-(reduced costs).
+After solving, dual variables are extracted from PuLP via
+\texttt{constraint.pi} (shadow prices) and \texttt{variable.dj} (reduced costs).
 
 The \textbf{shadow price} $\pi_i$ of supply constraint $i$ equals the
 decrease in total cost achievable by relaxing that supply limit by one unit.
