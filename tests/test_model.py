@@ -85,3 +85,45 @@ class TestFormulationText:
         assert "Minimize" in text or "minimize" in text.lower()
         assert "Supply" in text or "supply" in text.lower()
         assert "Demand" in text or "demand" in text.lower()
+
+
+class TestCO2Budget:
+    def test_no_budget_still_optimal(self, normal_result):
+        assert normal_result["status"] == "Optimal"
+
+    def test_tight_budget_makes_infeasible(self, normal_season, co2_matrix):
+        supply, demand, cost = normal_season
+        result = solve(supply, demand, cost,
+                       co2_matrix=co2_matrix, co2_budget=1.0)
+        assert result["status"] != "Optimal"
+
+    def test_loose_budget_stays_optimal(self, normal_season, co2_matrix):
+        supply, demand, cost = normal_season
+        result = solve(supply, demand, cost,
+                       co2_matrix=co2_matrix, co2_budget=999_999)
+        assert result["status"] == "Optimal"
+
+    def test_budget_respected(self, normal_season, co2_matrix):
+        supply, demand, cost = normal_season
+        # Compute baseline CO₂
+        base = solve(supply, demand, cost)
+        baseline_co2 = sum(
+            co2_matrix[s][w] * v
+            for (s, w), v in base["shipments"].items()
+        )
+        # Use 90% as budget
+        budget = baseline_co2 * 0.90
+        result = solve(supply, demand, cost,
+                       co2_matrix=co2_matrix, co2_budget=budget)
+        if result["status"] == "Optimal":
+            actual_co2 = sum(
+                co2_matrix[s][w] * v
+                for (s, w), v in result["shipments"].items()
+            )
+            assert actual_co2 <= budget + 0.01
+
+    def test_co2_matrix_none_ignores_budget(self, normal_season):
+        supply, demand, cost = normal_season
+        result = solve(supply, demand, cost,
+                       co2_matrix=None, co2_budget=1.0)
+        assert result["status"] == "Optimal"

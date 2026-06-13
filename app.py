@@ -22,6 +22,9 @@ from analytics import sensitivity_analysis, monte_carlo, multi_objective_pareto
 from report import generate_pdf
 from excel_export import generate_excel
 from multiperiod import solve_multiperiod, QUARTERS, HOLDING_COST_PER_UNIT_PER_QUARTER
+from forecasting import forecast_demand
+from pmedian import solve_pmedian, ALL_LOCATIONS
+from disruption import simulate_disruption
 
 # ---------------------------------------------------------------------------
 # PAGE CONFIG
@@ -120,6 +123,16 @@ with st.sidebar:
                 value=info["demand"], step=10, key=f"dem_{wh}",
             )
 
+        st.markdown("**🌱 CO₂ Emission Cap**")
+        co2_budget_on = st.checkbox("Apply CO₂ budget constraint", value=False)
+        if co2_budget_on:
+            co2_budget_val = st.slider(
+                "Max total CO₂ (kg)", 200, 3000, 800, 50,
+                help="Hard upper limit on total CO₂ from all shipments.",
+            )
+        else:
+            co2_budget_val = None
+
     use_custom = st.checkbox("Apply custom parameters", value=False)
 
     st.divider()
@@ -175,7 +188,9 @@ def run_optimization(scen_name, use_cust):
         else:
             supply, demand, cost = get_scenario_data(scen_name)
 
-        result = solve(supply, demand, cost)
+        co2_mat = _co2_matrix if co2_budget_on else None
+        co2_bud = co2_budget_val if co2_budget_on else None
+        result = solve(supply, demand, cost, co2_matrix=co2_mat, co2_budget=co2_bud)
         st.session_state.result       = result
         st.session_state.scenario_run = scen_name
         st.session_state.supply_used  = supply
@@ -285,11 +300,12 @@ st.markdown("")
 # ---------------------------------------------------------------------------
 # TABS
 # ---------------------------------------------------------------------------
-tab_map, tab_plan, tab_cost, tab_scenario, tab_mc, tab_sens, tab_pareto, tab_mp, tab_model = st.tabs([
+tab_map, tab_plan, tab_cost, tab_scenario, tab_mc, tab_sens, tab_pareto, tab_mp, tab_dis, tab_loc, tab_model = st.tabs([
     "🗺️ Map", "📦 Optimal Plan", "💰 Cost Analysis",
     "📊 Scenario Comparison", "🎲 Monte Carlo",
     "🔍 Sensitivity Analysis", "🎯 Multi-Objective",
-    "📅 Multi-Period", "📐 Model Formulation",
+    "📅 Multi-Period", "⚠️ Disruption", "📍 Location",
+    "📐 Model Formulation",
 ])
 
 # ── TAB 1: MAP ──────────────────────────────────────────────────────────────
@@ -695,6 +711,87 @@ if res and res["status"] == "Optimal":
 
 # ── TAB 8: MULTI-PERIOD ──────────────────────────────────────────────────────
 with tab_mp:
+    # ── Demand Forecast sub-section ──────────────────────────────────────────
+    with st.expander("📈 Demand Forecast (Holt Exponential Smoothing)", expanded=False):
+        fc_col1, fc_col2 = st.columns([1, 3])
+        with fc_col1:
+            fc_alpha = st.slider("Alpha (level)", 0.05, 0.95, 0.40, 0.05,
+                                 help="Higher = more weight on recent observations")
+            fc_beta  = st.slider("Beta (trend)", 0.05, 0.50, 0.15, 0.05,
+                                 help="Controls trend dampening")
+            fc_btn   = st.button("📊 Generate Forecast", type="primary",
+                                 use_container_width=True, key="fc_btn")
+            use_fc   = st.checkbox("Use forecast as Q1-Q4 demand", value=False,
+                                   key="use_fc",
+                                   help="Overrides base demand in the LP below")
+
+        if fc_btn:
+            st.session_state["fc_result"] = forecast_demand(
+                n_forecast=4, alpha=fc_alpha, beta=fc_beta,
+            )
+
+        fc_res = st.session_state.get("fc_result")
+        if fc_res:
+            import plotly.graph_objects as go
+            quarters_hist = [f"H-Q{i+1}" for i in range(8)]
+            quarters_fct  = ["Q1", "Q2", "Q3", "Q4"]
+            x_all         = quarters_hist + quarters_fct
+
+            with fc_col2:
+                fig_fc = go.Figure()
+                colors = ["#3498DB", "#E74C3C", "#2ECC71", "#F39C12",
+                          "#9B59B6", "#1ABC9C", "#E67E22", "#34495E"]
+                for idx, (w, data) in enumerate(fc_res.items()):
+                    c = colors[idx % len(colors)]
+                    fig_fc.add_trace(go.Scatter(
+                        x=quarters_hist, y=data["history"],
+                        mode="markers", name=f"{w} actual",
+                        marker=dict(color=c, size=7), legendgroup=w,
+                        showlegend=True,
+                    ))
+                    fig_fc.add_trace(go.Scatter(
+                        x=quarters_hist, y=data["smoothed"],
+                        mode="lines", name=f"{w} smoothed",
+                        line=dict(color=c, width=1.5, dash="dot"),
+                        legendgroup=w, showlegend=False,
+                    ))
+                    fig_fc.add_trace(go.Scatter(
+                        x=quarters_fct, y=data["forecast"],
+                        mode="lines+markers", name=f"{w} forecast",
+                        line=dict(color=c, width=2, dash="dash"),
+                        marker=dict(symbol="diamond", size=8),
+                        legendgroup=w, showlegend=False,
+                    ))
+                fig_fc.add_vrect(
+                    x0="Q1", x1="Q4",
+                    fillcolor="#2ECC71", opacity=0.05,
+                    annotation_text="Forecast horizon", annotation_position="top left",
+                )
+                fig_fc.update_layout(
+                    title="Historical Demand + Forecast (Holt Smoothing)",
+                    xaxis_title="Quarter", yaxis_title="Units",
+                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                    font_color="white", height=340,
+                    xaxis=dict(gridcolor="#333"), yaxis=dict(gridcolor="#333"),
+                )
+                st.plotly_chart(fig_fc, use_container_width=True)
+
+            # Forecast table
+            fc_rows = []
+            for w, data in fc_res.items():
+                row = {"Warehouse": w}
+                for i, v in enumerate(data["forecast"]):
+                    row[f"Q{i+1}"] = v
+                fc_rows.append(row)
+            st.dataframe(
+                pd.DataFrame(fc_rows).set_index("Warehouse"),
+                use_container_width=True,
+            )
+        else:
+            with fc_col2:
+                st.info("Press **Generate Forecast** to run Holt smoothing on synthetic historical data.")
+
+with tab_mp:
     st.markdown(
         "**4-quarter LP** with inventory carryover. "
         "Annual capacity is split evenly across quarters; "
@@ -785,7 +882,371 @@ with tab_mp:
         st.info("Press **Solve Multi-Period** to run the 4-quarter LP.")
 
 
-# ── TAB 9: MODEL FORMULATION ─────────────────────────────────────────────────
+# ── TAB 9: DISRUPTION SIMULATION ─────────────────────────────────────────────
+with tab_dis:
+    import plotly.graph_objects as go
+    import folium
+
+    st.markdown(
+        "Simulate a supply disruption — disable or reduce source capacity "
+        "and see how the optimizer re-routes and how much cost increases."
+    )
+
+    col_d1, col_d2 = st.columns([1, 2])
+    with col_d1:
+        st.markdown('<div class="section-header">Disruption Settings</div>',
+                    unsafe_allow_html=True)
+
+        dis_scenario = st.selectbox("Base Scenario", list(SCENARIOS.keys()),
+                                    key="dis_scen")
+        st.markdown("**Disable Sources (capacity → 0)**")
+        disabled_srcs = []
+        for src in SOURCES:
+            if st.checkbox(src, value=False, key=f"dis_{src}"):
+                disabled_srcs.append(src)
+
+        st.markdown("**Partial Capacity Cuts**")
+        cap_fracs: dict[str, float] = {}
+        for src in SOURCES:
+            if src not in disabled_srcs:
+                frac = st.slider(f"{src} capacity %", 10, 100, 100, 10,
+                                 key=f"frac_{src}") / 100
+                if frac < 1.0:
+                    cap_fracs[src] = frac
+
+        dis_btn = st.button("⚠️ Simulate Disruption", type="primary",
+                            use_container_width=True, key="dis_btn")
+
+    if dis_btn:
+        d_supply, d_demand, d_cost = get_scenario_data(dis_scenario)
+        with st.spinner("Solving base + disrupted LP..."):
+            dis_result = simulate_disruption(
+                d_supply, d_demand, d_cost,
+                disabled_sources=disabled_srcs,
+                capacity_fractions=cap_fracs,
+            )
+        st.session_state["dis_result"] = dis_result
+        st.session_state["dis_supply"] = d_supply
+        st.session_state["dis_demand"] = d_demand
+
+    dr = st.session_state.get("dis_result")
+    if dr:
+        with col_d2:
+            base_ok = dr["base"]["status"] == "Optimal"
+            dis_ok  = dr["disrupted"]["status"] == "Optimal"
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Base Cost", f"₺{dr['base']['total_cost']:,.0f}" if base_ok else "—")
+            if dis_ok:
+                m2.metric("Disrupted Cost", f"₺{dr['disrupted']['total_cost']:,.0f}",
+                          delta=f"₺{dr['cost_delta']:+,.0f}" if dr['cost_delta'] else None,
+                          delta_color="inverse")
+                m3.metric("Cost Impact", f"{dr['cost_delta_pct']:+.1f}%" if dr['cost_delta_pct'] else "—")
+            else:
+                m2.metric("Disrupted Cost", "INFEASIBLE")
+                m3.metric("Cost Impact", "Cannot serve demand")
+            m4.metric("Lost Routes", len(dr["lost_routes"]))
+
+        st.divider()
+
+        if dis_ok:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                st.markdown('<div class="section-header">Lost Routes (red)</div>',
+                            unsafe_allow_html=True)
+                if dr["lost_routes"]:
+                    ldf = pd.DataFrame([
+                        {"Source": s, "Warehouse": w,
+                         "Base units": int(dr["base"]["shipments"].get((s, w), 0))}
+                        for (s, w) in sorted(dr["lost_routes"])
+                    ])
+                    st.dataframe(ldf, hide_index=True, use_container_width=True)
+                else:
+                    st.success("No routes lost.")
+
+            with col_r2:
+                st.markdown('<div class="section-header">New Routes (green)</div>',
+                            unsafe_allow_html=True)
+                if dr["new_routes"]:
+                    ndf = pd.DataFrame([
+                        {"Source": s, "Warehouse": w,
+                         "New units": int(dr["disrupted"]["shipments"].get((s, w), 0))}
+                        for (s, w) in sorted(dr["new_routes"])
+                    ])
+                    st.dataframe(ndf, hide_index=True, use_container_width=True)
+                else:
+                    st.info("No new routes introduced.")
+
+            st.divider()
+            # Cost comparison bar chart
+            fig_dis = go.Figure()
+            fig_dis.add_trace(go.Bar(
+                name="Base",
+                x=["Total Cost"],
+                y=[dr["base"]["total_cost"]],
+                marker_color="#3498DB",
+                text=[f"₺{dr['base']['total_cost']:,.0f}"],
+                textposition="outside",
+            ))
+            fig_dis.add_trace(go.Bar(
+                name="Disrupted",
+                x=["Total Cost"],
+                y=[dr["disrupted"]["total_cost"]],
+                marker_color="#E74C3C",
+                text=[f"₺{dr['disrupted']['total_cost']:,.0f}"],
+                textposition="outside",
+            ))
+
+            # Supply comparison
+            fig_dis.update_layout(
+                title="Base vs Disrupted Total Cost",
+                barmode="group",
+                paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                font_color="white", height=300,
+                yaxis=dict(title="Cost (TL)", gridcolor="#333"),
+            )
+            st.plotly_chart(fig_dis, use_container_width=True)
+
+            # Disruption map
+            st.markdown('<div class="section-header">Network Map</div>',
+                        unsafe_allow_html=True)
+            st.caption("🔵 Unchanged routes · 🔴 Lost routes · 🟢 New routes")
+
+            dmap = folium.Map(location=[39.0, 35.0], zoom_start=6,
+                              tiles="CartoDB dark_matter")
+
+            # Sources
+            for src, info in SOURCES.items():
+                is_disabled = src in (disabled_srcs or [])
+                cap_frac    = cap_fracs.get(src, 1.0)
+                color       = "#888888" if is_disabled else ("#F39C12" if cap_frac < 1.0 else "#E74C3C")
+                label       = f"{src} ({'DISABLED' if is_disabled else f'{int(cap_frac*100)}%'})"
+                folium.CircleMarker(
+                    [info["lat"], info["lon"]], radius=10,
+                    color=color, fill=True, fill_opacity=0.9,
+                    popup=label, tooltip=label,
+                ).add_to(dmap)
+
+            for wh, info in WAREHOUSES.items():
+                folium.CircleMarker(
+                    [info["lat"], info["lon"]], radius=7,
+                    color="#2ECC71", fill=True, fill_opacity=0.8,
+                    tooltip=wh,
+                ).add_to(dmap)
+
+            # Unchanged routes (blue)
+            for (s, w) in dr["unchanged_routes"]:
+                folium.PolyLine(
+                    [[SOURCES[s]["lat"], SOURCES[s]["lon"]],
+                     [WAREHOUSES[w]["lat"], WAREHOUSES[w]["lon"]]],
+                    color="#3498DB", weight=2, opacity=0.6,
+                    tooltip=f"{s}→{w} (unchanged)",
+                ).add_to(dmap)
+
+            # Lost routes (red dashed)
+            for (s, w) in dr["lost_routes"]:
+                folium.PolyLine(
+                    [[SOURCES[s]["lat"], SOURCES[s]["lon"]],
+                     [WAREHOUSES[w]["lat"], WAREHOUSES[w]["lon"]]],
+                    color="#E74C3C", weight=3, opacity=0.9,
+                    dash_array="8 4",
+                    tooltip=f"{s}→{w} (LOST)",
+                ).add_to(dmap)
+
+            # New routes (green)
+            for (s, w) in dr["new_routes"]:
+                folium.PolyLine(
+                    [[SOURCES[s]["lat"], SOURCES[s]["lon"]],
+                     [WAREHOUSES[w]["lat"], WAREHOUSES[w]["lon"]]],
+                    color="#2ECC71", weight=3, opacity=0.9,
+                    tooltip=f"{s}→{w} (NEW)",
+                ).add_to(dmap)
+
+            st_folium(dmap, width="100%", height=450)
+        else:
+            st.error(
+                "Disruption makes the problem **infeasible** — "
+                "remaining supply cannot cover all warehouse demand. "
+                "Try enabling more sources or reducing partial capacity cuts."
+            )
+    else:
+        st.info("Configure disruption settings and press **Simulate Disruption**.")
+
+
+# ── TAB 10: LOCATION OPTIMIZATION (P-MEDIAN) ─────────────────────────────────
+with tab_loc:
+    import plotly.graph_objects as go
+
+    st.markdown(
+        "**P-Median Facility Location** — given 13 candidate cities (5 sources + 8 warehouses), "
+        "find which *p* locations minimise total **demand × distance** (km·units). "
+        "Useful for deciding where to open new distribution hubs."
+    )
+
+    col_l1, col_l2 = st.columns([1, 3])
+    with col_l1:
+        p_val   = st.slider("Number of facilities (p)", 1, 8, 3)
+        loc_btn = st.button("📍 Find Optimal Locations", type="primary",
+                            use_container_width=True, key="loc_btn")
+
+    if loc_btn:
+        with st.spinner(f"Solving p={p_val} median MIP..."):
+            loc_result = solve_pmedian(p=p_val)
+        st.session_state["loc_result"] = loc_result
+        st.session_state["loc_p"]      = p_val
+
+    lr = st.session_state.get("loc_result")
+    if lr and lr["status"] == "Optimal":
+        p_used = st.session_state.get("loc_p", p_val)
+
+        with col_l2:
+            k1, k2 = st.columns(2)
+            k1.metric("Selected Facilities", p_used)
+            k2.metric("Total Weighted Distance", f"{lr['total_weighted_dist']:,.0f} km·units")
+
+        st.divider()
+
+        col_m, col_t = st.columns([3, 2])
+        with col_m:
+            st.markdown('<div class="section-header">Optimal Facility Locations</div>',
+                        unsafe_allow_html=True)
+
+            loc_map = folium.Map(location=[39.0, 35.0], zoom_start=6,
+                                 tiles="CartoDB dark_matter")
+
+            # Colour palette for facilities
+            palette = ["#F39C12", "#3498DB", "#E74C3C", "#2ECC71",
+                       "#9B59B6", "#1ABC9C", "#E67E22", "#34495E"]
+            fac_color = {fac: palette[i % len(palette)]
+                         for i, fac in enumerate(lr["selected"])}
+
+            # Draw assignment lines (demand node → assigned facility)
+            for node, fac in lr["assignment"].items():
+                n_loc = ALL_LOCATIONS[node]
+                f_loc = ALL_LOCATIONS[fac]
+                folium.PolyLine(
+                    [[n_loc["lat"], n_loc["lon"]],
+                     [f_loc["lat"],  f_loc["lon"]]],
+                    color=fac_color[fac], weight=2, opacity=0.5,
+                    tooltip=f"{node} → {fac}",
+                ).add_to(loc_map)
+
+            # All candidate cities (small grey)
+            for city, loc in ALL_LOCATIONS.items():
+                if city not in lr["selected"]:
+                    folium.CircleMarker(
+                        [loc["lat"], loc["lon"]], radius=5,
+                        color="#555", fill=True, fill_opacity=0.5,
+                        tooltip=city,
+                    ).add_to(loc_map)
+
+            # Selected facilities (large, coloured)
+            for fac in lr["selected"]:
+                loc  = ALL_LOCATIONS[fac]
+                col  = fac_color[fac]
+                served = [n for n, f in lr["assignment"].items() if f == fac]
+                pop    = f"<b>{fac}</b><br>Serves: {', '.join(served)}"
+                folium.CircleMarker(
+                    [loc["lat"], loc["lon"]], radius=13,
+                    color=col, fill=True, fill_opacity=0.95,
+                    tooltip=fac, popup=pop,
+                ).add_to(loc_map)
+                folium.map.Marker(
+                    [loc["lat"], loc["lon"]],
+                    icon=folium.DivIcon(
+                        html=f'<div style="font-size:10px;color:white;'
+                             f'font-weight:bold;text-align:center;'
+                             f'margin-top:-5px">{fac[:3]}</div>',
+                        icon_size=(40, 20), icon_anchor=(20, 10),
+                    ),
+                ).add_to(loc_map)
+
+            # Demand nodes (coloured by assignment)
+            for node in lr["assignment"]:
+                if node in WAREHOUSES:
+                    fac  = lr["assignment"][node]
+                    loc  = ALL_LOCATIONS[node]
+                    col  = fac_color[fac]
+                    dist = lr["dist_matrix"][node][fac]
+                    folium.CircleMarker(
+                        [loc["lat"], loc["lon"]], radius=7,
+                        color=col, fill=True, fill_opacity=0.8,
+                        tooltip=f"{node} → {fac} ({dist:.0f} km)",
+                    ).add_to(loc_map)
+
+            st_folium(loc_map, width="100%", height=480)
+
+        with col_t:
+            st.markdown('<div class="section-header">Assignment Table</div>',
+                        unsafe_allow_html=True)
+            rows_loc = []
+            for node, fac in sorted(lr["assignment"].items()):
+                dm = WAREHOUSES.get(node, {}).get("demand", "—")
+                d  = lr["dist_matrix"][node][fac]
+                rows_loc.append({
+                    "Demand Node":    node,
+                    "Assigned Hub":   fac,
+                    "Distance (km)":  f"{d:.0f}",
+                    "Demand (units)": dm,
+                    "Weighted (km·u)": f"{(dm * d if isinstance(dm, int) else 0):,.0f}",
+                })
+            st.dataframe(pd.DataFrame(rows_loc), hide_index=True, use_container_width=True)
+
+            st.markdown('<div class="section-header">Selected Hubs</div>',
+                        unsafe_allow_html=True)
+            hub_rows = []
+            for fac in lr["selected"]:
+                served   = [n for n, f in lr["assignment"].items() if f == fac]
+                tot_d    = sum(
+                    WAREHOUSES.get(n, {}).get("demand", 0) * lr["dist_matrix"][n][fac]
+                    for n in served
+                )
+                hub_rows.append({
+                    "Hub":              fac,
+                    "Serves":           len(served),
+                    "Total km·units":   f"{tot_d:,.0f}",
+                })
+            st.dataframe(pd.DataFrame(hub_rows), hide_index=True, use_container_width=True)
+
+            # p comparison chart (solve for p=1..p+2 for context)
+            if "loc_curve" not in st.session_state or st.session_state.get("loc_p") != p_used:
+                with st.spinner("Computing p-curve..."):
+                    curve = []
+                    for pp in range(1, min(8, len(ALL_LOCATIONS)) + 1):
+                        rr = solve_pmedian(p=pp)
+                        if rr["status"] == "Optimal":
+                            curve.append({"p": pp, "wd": rr["total_weighted_dist"]})
+                st.session_state["loc_curve"] = curve
+
+            curve = st.session_state.get("loc_curve", [])
+            if curve:
+                fig_curve = go.Figure(go.Scatter(
+                    x=[c["p"] for c in curve],
+                    y=[c["wd"] for c in curve],
+                    mode="lines+markers",
+                    marker=dict(
+                        size=[14 if c["p"] == p_used else 8 for c in curve],
+                        color=["#F39C12" if c["p"] == p_used else "#3498DB" for c in curve],
+                    ),
+                    line=dict(color="#3498DB", width=2),
+                    hovertemplate="p=%{x}<br>%{y:,.0f} km·units<extra></extra>",
+                ))
+                fig_curve.update_layout(
+                    title="Weighted Distance vs Number of Facilities",
+                    xaxis_title="p (facilities)", yaxis_title="km·units",
+                    paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
+                    font_color="white", height=260,
+                    xaxis=dict(gridcolor="#333", dtick=1),
+                    yaxis=dict(gridcolor="#333"),
+                )
+                st.plotly_chart(fig_curve, use_container_width=True)
+    elif lr:
+        st.error(f"Solver status: {lr['status']}")
+    else:
+        st.info("Set p and press **Find Optimal Locations**.")
+
+
+# ── TAB 11: MODEL FORMULATION ─────────────────────────────────────────────────
 with tab_model:
     sup_disp = st.session_state.supply_used or {s: SOURCES[s]["capacity"] for s in SOURCES}
     dem_disp = st.session_state.demand_used or {w: WAREHOUSES[w]["demand"] for w in WAREHOUSES}

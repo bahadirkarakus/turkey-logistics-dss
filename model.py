@@ -6,15 +6,23 @@ from __future__ import annotations
 import pulp
 
 
-def solve(supply: dict, demand: dict, cost: dict) -> dict:
+def solve(
+    supply:     dict,
+    demand:     dict,
+    cost:       dict,
+    co2_matrix: dict | None  = None,
+    co2_budget: float | None = None,
+) -> dict:
     """
     Solves the transportation problem.
 
     Parameters
     ----------
-    supply : {source: capacity}
-    demand : {warehouse: demand}
-    cost   : {source: {warehouse: cost_per_unit}}
+    supply     : {source: capacity}
+    demand     : {warehouse: demand}
+    cost       : {source: {warehouse: cost_per_unit}}
+    co2_matrix : optional {source: {warehouse: kg_co2_per_unit}}
+    co2_budget : optional max total CO₂ (kg); requires co2_matrix
 
     Returns
     -------
@@ -50,6 +58,15 @@ def solve(supply: dict, demand: dict, cost: dict) -> dict:
     # Demand constraints (>=)
     for j in warehouses:
         prob += pulp.lpSum(x[i, j] for i in sources) >= demand[j], f"demand_{j}"
+
+    # Optional CO₂ emission cap
+    if co2_budget is not None and co2_matrix is not None:
+        prob += (
+            pulp.lpSum(co2_matrix[i][j] * x[i, j]
+                       for i in sources for j in warehouses)
+            <= co2_budget,
+            "co2_budget",
+        )
 
     # Solve (suppress solver output)
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
