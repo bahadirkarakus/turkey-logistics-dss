@@ -105,12 +105,24 @@ with st.sidebar:
     use_custom = st.checkbox("Özel parametreleri uygula", value=False)
 
     st.divider()
-    run_btn = st.button("▶ Optimizasyonu Çalıştır", type="primary", use_container_width=True)
-    run_all = st.button("📊 Tüm Senaryoları Karşılaştır", use_container_width=True)
+    run_btn  = st.button("▶ Optimizasyonu Çalıştır", type="primary", use_container_width=True)
+    save_btn = st.button("💾 Sonucu Kaydet", use_container_width=True)
+    compare_btn = st.button("📊 Kaydedilenleri Karşılaştır", use_container_width=True)
+
+    # Saved scenarios list
+    if st.session_state.get("saved_scenarios"):
+        st.divider()
+        st.markdown("**💾 Kaydedilenler**")
+        for sname, sdata in st.session_state.saved_scenarios.items():
+            col_a, col_b = st.columns([3, 1])
+            col_a.caption(f"✓ {sname}")
+            col_b.caption(f"₺{sdata['total_cost']:,.0f}")
+        if st.button("🗑️ Tümünü Sil", use_container_width=True):
+            st.session_state.saved_scenarios = {}
+            st.session_state.all_results = {}
 
     st.divider()
     st.caption("Çözüm yöntemi: Simplex LP (PuLP / CBC)")
-    st.caption("© 2026 — IE303 Benzeri Proje")
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +133,8 @@ if "scenario_run" not in st.session_state: st.session_state.scenario_run = None
 if "supply_used"  not in st.session_state: st.session_state.supply_used  = None
 if "demand_used"  not in st.session_state: st.session_state.demand_used  = None
 if "cost_used"    not in st.session_state: st.session_state.cost_used    = None
-if "all_results"  not in st.session_state: st.session_state.all_results  = None
+if "all_results"  not in st.session_state: st.session_state.all_results  = {}
+if "saved_scenarios" not in st.session_state: st.session_state.saved_scenarios = {}
 
 
 # ---------------------------------------------------------------------------
@@ -150,15 +163,23 @@ def run_optimization(scen_name, use_cust):
 if run_btn:
     run_optimization(scenario, use_custom)
 
-if run_all:
-    all_res = {}
-    with st.spinner("Tüm senaryolar çözülüyor..."):
-        for sname in SCENARIOS:
-            sup, dem, cst = get_scenario_data(sname)
-            all_res[sname] = solve(sup, dem, cst)
-    st.session_state.all_results = all_res
-    # Also run selected scenario so result panel is populated
-    run_optimization(scenario, use_custom)
+if save_btn:
+    if st.session_state.result and st.session_state.result["status"] == "Optimal":
+        key = st.session_state.scenario_run
+        st.session_state.saved_scenarios[key] = {
+            "total_cost": st.session_state.result["total_cost"],
+            "shipments":  st.session_state.result["shipments"],
+        }
+        st.session_state.all_results = st.session_state.saved_scenarios
+        st.sidebar.success(f"✓ '{key}' kaydedildi")
+    else:
+        st.sidebar.warning("Önce optimizasyonu çalıştır.")
+
+if compare_btn:
+    if st.session_state.saved_scenarios:
+        st.session_state.all_results = st.session_state.saved_scenarios
+    else:
+        st.sidebar.warning("Henüz kaydedilmiş senaryo yok.")
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +371,7 @@ with tab_cost:
 
 # ── TAB 4: SCENARIO COMPARISON ──────────────────────────────────────────────
 with tab_scenario:
-    if st.session_state.all_results:
+    if st.session_state.all_results and len(st.session_state.all_results) > 0:
         all_res = st.session_state.all_results
         st.plotly_chart(build_scenario_comparison(all_res), use_container_width=True)
 
@@ -380,7 +401,7 @@ with tab_scenario:
                          for (s, w), v in r["shipments"].items()]
                 st.dataframe(pd.DataFrame(rows2), hide_index=True, use_container_width=True)
     else:
-        st.info("Sol panelde **Tüm Senaryoları Karşılaştır** butonuna bas.")
+        st.info("Senaryo seç → Optimizasyonu Çalıştır → Sonucu Kaydet · Birden fazla senaryo kaydettikten sonra Kaydedilenleri Karşılaştır butonuna bas.")
 
 # ── TAB 5: MODEL FORMULATION ─────────────────────────────────────────────────
 with tab_model:
