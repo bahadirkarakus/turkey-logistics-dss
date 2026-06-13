@@ -51,7 +51,7 @@ def build_map(shipments: dict, supply: dict, demand: dict) -> folium.Map:
             color=color,
             weight=weight,
             opacity=0.85,
-            tooltip=f"{src} → {wh}: {int(units)} birim",
+            tooltip=f"{src} → {wh}: {int(units)} units",
             delay=800,
         ).add_to(m)
 
@@ -64,8 +64,8 @@ def build_map(shipments: dict, supply: dict, demand: dict) -> folium.Map:
             location=[info["lat"], info["lon"]],
             tooltip=f"🏭 {name}",
             popup=folium.Popup(
-                f"<b>{name}</b><br>Kapasite: {cap} birim<br>"
-                f"Sevk edilen: {int(used)} birim<br>Kalan: {int(slack)} birim",
+                f"<b>{name}</b><br>Capacity: {cap} units<br>"
+                f"Shipped: {int(used)} units<br>Slack: {int(slack)} units",
                 max_width=220,
             ),
             icon=folium.Icon(color="red", icon="industry", prefix="fa"),
@@ -79,8 +79,8 @@ def build_map(shipments: dict, supply: dict, demand: dict) -> folium.Map:
             location=[info["lat"], info["lon"]],
             tooltip=f"🏬 {name}",
             popup=folium.Popup(
-                f"<b>{name}</b><br>Talep: {dem} birim<br>"
-                f"Alınan: {int(recv)} birim",
+                f"<b>{name}</b><br>Demand: {dem} units<br>"
+                f"Received: {int(recv)} units",
                 max_width=200,
             ),
             icon=folium.Icon(color="green", icon="warehouse", prefix="fa"),
@@ -108,7 +108,7 @@ def build_sankey(shipments: dict) -> go.Figure:
         src_idx.append(nodes.index(s))
         tgt_idx.append(nodes.index(w))
         values.append(v)
-        labels.append(f"{int(v)} birim")
+        labels.append(f"{int(v)} units")
 
     fig = go.Figure(go.Sankey(
         arrangement="snap",
@@ -130,7 +130,7 @@ def build_sankey(shipments: dict) -> go.Figure:
     ))
 
     fig.update_layout(
-        title=dict(text="Mal Akış Diyagramı — Üretim Merkezi → Depo", font_size=15),
+        title=dict(text="Material Flow — Production Centre → Warehouse", font_size=15),
         font=dict(size=13),
         height=380,
         margin=dict(l=10, r=10, t=50, b=10),
@@ -163,7 +163,7 @@ def build_cost_breakdown(shipments: dict, cost: dict) -> go.Figure:
     ))
 
     fig.update_layout(
-        title=dict(text="Rota Bazında Toplam Maliyet (TL)", font_size=15),
+        title=dict(text="Total Cost per Active Route (TL)", font_size=15),
         xaxis_title="TL",
         height=max(300, len(routes) * 48),
         margin=dict(l=10, r=80, t=50, b=30),
@@ -193,7 +193,7 @@ def build_scenario_comparison(results: dict) -> go.Figure:
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        name="Toplam Maliyet",
+        name="Total Cost",
         x=names,
         y=costs,
         marker_color=bar_colors,
@@ -203,7 +203,7 @@ def build_scenario_comparison(results: dict) -> go.Figure:
     ))
 
     fig.add_trace(go.Scatter(
-        name="Değişim (%)",
+        name="Change (%)",
         x=names,
         y=pct_changes,
         mode="lines+markers+text",
@@ -215,9 +215,9 @@ def build_scenario_comparison(results: dict) -> go.Figure:
     ))
 
     fig.update_layout(
-        title=dict(text="Senaryo Karşılaştırması", font_size=15),
-        yaxis=dict(title="Toplam Maliyet (TL)", gridcolor="#333"),
-        yaxis2=dict(title="Baz'a Göre Değişim (%)", overlaying="y", side="right"),
+        title=dict(text="Scenario Comparison", font_size=15),
+        yaxis=dict(title="Total Cost (TL)", gridcolor="#333"),
+        yaxis2=dict(title="Change vs Base (%)", overlaying="y", side="right"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         height=400,
         margin=dict(l=10, r=10, t=70, b=30),
@@ -244,12 +244,12 @@ def build_cost_heatmap(cost: dict) -> go.Figure:
         colorscale="RdYlGn_r",
         text=[[f"₺{cost[s][w]:,.0f}" for w in warehouses] for s in sources],
         texttemplate="%{text}",
-        hovertemplate="%{y} → %{x}: ₺%{z:,.0f}/birim<extra></extra>",
-        colorbar=dict(title="TL/birim"),
+        hovertemplate="%{y} → %{x}: ₺%{z:,.0f}/unit<extra></extra>",
+        colorbar=dict(title="TL/unit"),
     ))
 
     fig.update_layout(
-        title=dict(text="Birim Taşıma Maliyet Matrisi (TL/birim)", font_size=15),
+        title=dict(text="Unit Transport Cost Matrix (TL/unit)", font_size=15),
         height=320,
         margin=dict(l=10, r=10, t=50, b=10),
         paper_bgcolor="#0e1117",

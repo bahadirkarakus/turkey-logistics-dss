@@ -66,33 +66,33 @@ PARAMS = {
 # SCENARIOS
 # ---------------------------------------------------------------------------
 SCENARIOS = {
-    "Normal Dönem": {
+    "Normal Season": {
         "demand_multipliers": {w: 1.0 for w in WAREHOUSES},
         "fuel_multiplier": 1.0,
-        "description": "Baz senaryo — standart talep ve maliyetler.",
+        "description": "Base scenario — standard demand and costs.",
     },
-    "Yaz Sezonu": {
+    "Summer Season": {
         "demand_multipliers": {
             "Konya": 1.0, "Kayseri": 1.0, "Trabzon": 1.20,
             "Gaziantep": 1.0, "Antalya": 1.40, "Samsun": 1.15,
             "Eskişehir": 1.0, "Diyarbakır": 1.0,
         },
         "fuel_multiplier": 1.0,
-        "description": "Turizm sezonu — Antalya +40%, Trabzon +20%, Samsun +15%.",
+        "description": "Tourism season — Antalya +40%, Trabzon +20%, Samsun +15%.",
     },
-    "Yakıt Zammı (+20%)": {
+    "Fuel Increase (+20%)": {
         "demand_multipliers": {w: 1.0 for w in WAREHOUSES},
         "fuel_multiplier": 1.20,
-        "description": "Tüm rota maliyetleri %20 artırılmıştır.",
+        "description": "All route costs increased by 20%.",
     },
-    "Kış Dönemi": {
+    "Winter Season": {
         "demand_multipliers": {
             "Konya": 1.10, "Kayseri": 1.15, "Trabzon": 0.80,
             "Gaziantep": 1.05, "Antalya": 0.70, "Samsun": 0.90,
             "Eskişehir": 1.10, "Diyarbakır": 1.20,
         },
         "fuel_multiplier": 1.05,
-        "description": "Kış dönemi — iç şehirler +, tatil bölgeleri −.",
+        "description": "Winter season — inland cities up, coastal resorts down.",
     },
 }
 

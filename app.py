@@ -1,6 +1,6 @@
 """
 Turkey Logistics DSS — Streamlit App
-Ulaştırma problemi optimizasyon aracı (Türkiye lojistik ağı)
+Transportation problem optimisation tool (Turkey logistics network)
 """
 
 import streamlit as st
@@ -25,7 +25,7 @@ from report import generate_pdf
 # PAGE CONFIG
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Türkiye Lojistik DSS",
+    page_title="Turkey Logistics DSS",
     page_icon="🚛",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -68,46 +68,46 @@ with st.sidebar:
         "Flag_of_Turkey.svg/320px-Flag_of_Turkey.svg.png",
         width=80,
     )
-    st.markdown("## 🚛 Türkiye Lojistik DSS")
-    st.caption("Ulaştırma Problemi Optimizasyon Aracı")
+    st.markdown("## 🚛 Turkey Logistics DSS")
+    st.caption("Transportation Problem Optimization Tool")
     st.divider()
 
     # Scenario picker
     scenario = st.selectbox(
         "Senaryo",
         list(SCENARIOS.keys()),
-        help="Çalıştırılacak senaryoyu seçin.",
+        help="Select the scenario to run.",
     )
     st.caption(f"*{SCENARIOS[scenario]['description']}*")
     st.divider()
 
     # Live fuel price
-    st.markdown("**⛽ Güncel Motorin Fiyatı (TL/L)**")
+    st.markdown("**⛽ Current Diesel Price (TL/L)**")
     live_fuel_price = st.number_input(
-        "Motorin fiyatı", min_value=10.0, max_value=200.0,
+        "Diesel price", min_value=10.0, max_value=200.0,
         value=40.0, step=0.5,
-        help="EPDK'dan güncel fiyatı girin. Maliyet matrisi otomatik güncellenir.",
+        help="Enter current price. Cost matrix updates automatically.",
     )
 
     # OSRM real distances
-    if st.button("🗺️ Gerçek Yol Mesafelerini Çek (OSRM)", use_container_width=True):
-        with st.spinner("OSRM API sorgulanıyor..."):
+    if st.button("🗺️ Fetch Real Road Distances (OSRM)", use_container_width=True):
+        with st.spinner("Querying OSRM API..."):
             real_dist, real_dur = fetch_real_distances(timeout=6)
             st.session_state.real_distances = real_dist
             st.session_state.real_durations = real_dur
-        st.sidebar.success("Gerçek mesafeler yüklendi ✓")
+        st.sidebar.success("Real distances loaded ✓")
 
     st.divider()
 
     # Custom parameter overrides
-    with st.expander("⚙️ Parametreleri Özelleştir", expanded=False):
-        st.markdown("**Yakıt Çarpanı**")
+    with st.expander("⚙️ Customise Parameters", expanded=False):
+        st.markdown("**Fuel Multiplier**")
         custom_fuel = st.slider(
-            "Yakıt maliyet çarpanı", 0.80, 2.00, 1.00, 0.05,
-            help="1.20 = yakıt fiyatı %20 arttı",
+            "Fuel cost multiplier", 0.80, 2.00, 1.00, 0.05,
+            help="1.20 = fuel price up 20%",
         )
 
-        st.markdown("**Arz Kapasiteleri**")
+        st.markdown("**Supply Capacities**")
         custom_supply = {}
         for src, info in SOURCES.items():
             custom_supply[src] = st.number_input(
@@ -115,7 +115,7 @@ with st.sidebar:
                 value=info["capacity"], step=50, key=f"sup_{src}",
             )
 
-        st.markdown("**Talep Değerleri**")
+        st.markdown("**Demand Values**")
         custom_demand = {}
         for wh, info in WAREHOUSES.items():
             custom_demand[wh] = st.number_input(
@@ -123,27 +123,27 @@ with st.sidebar:
                 value=info["demand"], step=10, key=f"dem_{wh}",
             )
 
-    use_custom = st.checkbox("Özel parametreleri uygula", value=False)
+    use_custom = st.checkbox("Apply custom parameters", value=False)
 
     st.divider()
-    run_btn  = st.button("▶ Optimizasyonu Çalıştır", type="primary", use_container_width=True)
-    save_btn = st.button("💾 Sonucu Kaydet", use_container_width=True)
-    compare_btn = st.button("📊 Kaydedilenleri Karşılaştır", use_container_width=True)
+    run_btn  = st.button("▶ Run Optimisation", type="primary", use_container_width=True)
+    save_btn = st.button("💾 Save Result", use_container_width=True)
+    compare_btn = st.button("📊 Compare Saved", use_container_width=True)
 
     # Saved scenarios list
     if st.session_state.get("saved_scenarios"):
         st.divider()
-        st.markdown("**💾 Kaydedilenler**")
+        st.markdown("**💾 Saved**")
         for sname, sdata in st.session_state.saved_scenarios.items():
             col_a, col_b = st.columns([3, 1])
             col_a.caption(f"✓ {sname}")
             col_b.caption(f"₺{sdata['total_cost']:,.0f}")
-        if st.button("🗑️ Tümünü Sil", use_container_width=True):
+        if st.button("🗑️ Clear All", use_container_width=True):
             st.session_state.saved_scenarios = {}
             st.session_state.all_results = {}
 
     st.divider()
-    st.caption("Çözüm yöntemi: Simplex LP (PuLP / CBC)")
+    st.caption("Solver: Simplex LP (PuLP / CBC)")
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ if "real_durations"   not in st.session_state: st.session_state.real_durations  
 # RUN OPTIMIZATION
 # ---------------------------------------------------------------------------
 def run_optimization(scen_name, use_cust):
-    with st.spinner("Solver çalışıyor..."):
+    with st.spinner("Solving..."):
         if use_cust:
             supply = custom_supply
             demand_raw = custom_demand
@@ -199,22 +199,22 @@ if save_btn:
         st.session_state.all_results = st.session_state.saved_scenarios
         st.sidebar.success(f"✓ '{key}' kaydedildi")
     else:
-        st.sidebar.warning("Önce optimizasyonu çalıştır.")
+        st.sidebar.warning("Run optimisation first.")
 
 if compare_btn:
     if st.session_state.saved_scenarios:
         st.session_state.all_results = st.session_state.saved_scenarios
     else:
-        st.sidebar.warning("Henüz kaydedilmiş senaryo yok.")
+        st.sidebar.warning("No scenarios saved yet.")
 
 
 # ---------------------------------------------------------------------------
 # HEADER
 # ---------------------------------------------------------------------------
-st.markdown("# 🚛 Türkiye Lojistik Karar Destek Sistemi")
+st.markdown("# 🚛 Turkey Logistics Decision-Support System")
 st.markdown(
-    "Üretim merkezlerinden depolara **minimum maliyetli** dağıtım planını "
-    "hesapla · Senaryo analizi · Harita görselleştirme"
+    "Find the **minimum-cost** shipment plan from production centres to warehouses "
+    "· Scenario analysis · Map visualisation"
 )
 st.divider()
 
@@ -230,15 +230,15 @@ total_demand_base = sum(WAREHOUSES[w]["demand"] for w in WAREHOUSES)
 with c1:
     cost_val = f"₺{res['total_cost']:,.0f}" if res else "—"
     st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Minimum Maliyet</div>
+        <div class="kpi-label">Minimum Cost</div>
         <div class="kpi-value">{cost_val}</div>
-        <div class="kpi-sub">{'Optimal ✓' if res else 'Henüz çözülmedi'}</div>
+        <div class="kpi-sub">{'Optimal ✓' if res else 'Not solved yet'}</div>
     </div>""", unsafe_allow_html=True)
 
 with c2:
     scen_label = st.session_state.scenario_run or "—"
     st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Aktif Senaryo</div>
+        <div class="kpi-label">Active Scenario</div>
         <div class="kpi-value" style="font-size:1.1rem">{scen_label}</div>
         <div class="kpi-sub">&nbsp;</div>
     </div>""", unsafe_allow_html=True)
@@ -246,24 +246,24 @@ with c2:
 with c3:
     routes_n = len(res["shipments"]) if res else "—"
     st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Aktif Rota</div>
+        <div class="kpi-label">Active Routes</div>
         <div class="kpi-value">{routes_n}</div>
-        <div class="kpi-sub">15 olası rotadan</div>
+        <div class="kpi-sub">of 15 possible routes</div>
     </div>""", unsafe_allow_html=True)
 
 with c4:
     st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Toplam Arz</div>
+        <div class="kpi-label">Total Supply</div>
         <div class="kpi-value">{total_supply:,}</div>
-        <div class="kpi-sub">birim kapasite</div>
+        <div class="kpi-sub">units capacity</div>
     </div>""", unsafe_allow_html=True)
 
 with c5:
     dem_used = sum(st.session_state.demand_used.values()) if st.session_state.demand_used else total_demand_base
     st.markdown(f"""<div class="kpi-card">
-        <div class="kpi-label">Toplam Talep</div>
+        <div class="kpi-label">Total Demand</div>
         <div class="kpi-value">{dem_used:,}</div>
-        <div class="kpi-sub">birim</div>
+        <div class="kpi-sub">units</div>
     </div>""", unsafe_allow_html=True)
 
 st.markdown("")
@@ -272,10 +272,10 @@ st.markdown("")
 # TABS
 # ---------------------------------------------------------------------------
 tab_map, tab_plan, tab_cost, tab_scenario, tab_mc, tab_sens, tab_pareto, tab_model = st.tabs([
-    "🗺️ Harita", "📦 Optimal Plan", "💰 Maliyet Analizi",
-    "📊 Senaryo Karşılaştırması", "🎲 Monte Carlo",
-    "🔍 Duyarlılık Analizi", "🎯 Çok Amaçlı",
-    "📐 Model Formülasyonu",
+    "🗺️ Map", "📦 Optimal Plan", "💰 Cost Analysis",
+    "📊 Scenario Comparison", "🎲 Monte Carlo",
+    "🔍 Sensitivity Analysis", "🎯 Multi-Objective",
+    "📐 Model Formulation",
 ])
 
 # ── TAB 1: MAP ──────────────────────────────────────────────────────────────
@@ -287,13 +287,13 @@ with tab_map:
             st.session_state.demand_used,
         )
         st_folium(fmap, width="100%", height=540)
-        st.caption("🔴 Üretim merkezi · 🟢 Depo · Hat kalınlığı = sevkiyat hacmi")
+        st.caption("🔴 Production centre · 🟢 Warehouse · Line thickness = shipment volume")
     else:
         # Default map without routes
         default_map = build_map({}, {s: SOURCES[s]["capacity"] for s in SOURCES},
                                  {w: WAREHOUSES[w]["demand"] for w in WAREHOUSES})
         st_folium(default_map, width="100%", height=540)
-        st.info("Optimizasyonu çalıştır → rotalar haritada görünür.")
+        st.info("Run optimisation → routes appear on the map.")
 
 # ── TAB 2: OPTIMAL PLAN ─────────────────────────────────────────────────────
 with tab_plan:
@@ -306,24 +306,24 @@ with tab_plan:
         col_l, col_r = st.columns([3, 2])
 
         with col_l:
-            st.markdown('<div class="section-header">Optimal Sevkiyat Planı</div>',
+            st.markdown('<div class="section-header">Optimal Shipment Plan</div>',
                         unsafe_allow_html=True)
 
             whs = list(WAREHOUSES.keys())
             rows = []
             for src in SOURCES:
-                row = {"Kaynak": src}
+                row = {"Source": src}
                 row_total = 0
                 for wh in whs:
                     v = ships.get((src, wh), 0)
                     row[wh] = int(v) if v > 0 else "—"
                     row_total += v
-                row["Toplam Sevk"] = int(row_total)
-                row["Kapasite"]    = sup[src]
-                row["Boşta"]       = int(sup[src] - row_total)
+                row["Total Shipped"] = int(row_total)
+                row["Capacity"]    = sup[src]
+                row["Slack"]       = int(sup[src] - row_total)
                 rows.append(row)
 
-            df_plan = pd.DataFrame(rows).set_index("Kaynak")
+            df_plan = pd.DataFrame(rows).set_index("Source")
 
             def highlight(val):
                 if val == "—" or val == 0:
@@ -341,20 +341,20 @@ with tab_plan:
             # Demand row
             dem_row = {wh: dem[wh] for wh in whs}
             met_row = {wh: int(sum(ships.get((s, wh), 0) for s in SOURCES)) for wh in whs}
-            st.markdown("**Talep karşılama:**")
+            st.markdown("**Demand fulfilment:**")
             df_dem = pd.DataFrame([
-                {"": "Talep"} | dem_row,
-                {"": "Karşılanan"} | met_row,
+                {"": "Demand"} | dem_row,
+                {"": "Fulfilled"} | met_row,
             ]).set_index("")
             st.dataframe(df_dem, use_container_width=True, height=100)
 
         with col_r:
-            st.markdown('<div class="section-header">Akış Diyagramı</div>',
+            st.markdown('<div class="section-header">Flow Diagram</div>',
                         unsafe_allow_html=True)
             st.plotly_chart(build_sankey(ships), use_container_width=True)
 
         st.divider()
-        st.markdown('<div class="section-header">Rota Detayları</div>',
+        st.markdown('<div class="section-header">Route Details</div>',
                     unsafe_allow_html=True)
 
         detail_rows = []
@@ -362,17 +362,17 @@ with tab_plan:
             unit_c  = cost[s][w]
             total_c = round(unit_c * units, 0)
             detail_rows.append({
-                "Kaynak": s, "Depo": w,
-                "Sevkiyat (birim)": int(units),
-                "Birim Maliyet (₺)": f"₺{unit_c:,.2f}",
-                "Toplam Maliyet (₺)": f"₺{total_c:,.0f}",
+                "Source": s, "Warehouse": w,
+                "Sevkiyat (units)": int(units),
+                "Unit Cost (TL)": f"₺{unit_c:,.2f}",
+                "Total Cost (TL)": f"₺{total_c:,.0f}",
             })
         st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
-        st.success(f"**Toplam Minimum Maliyet: ₺{res['total_cost']:,.2f}**")
+        st.success(f"**Toplam Minimum Cost: ₺{res['total_cost']:,.2f}**")
 
     else:
-        st.info("Sol panelden bir senaryo seçip **Optimizasyonu Çalıştır** butonuna bas.")
+        st.info("Select a scenario from the sidebar and press **Run Optimisation**.")
 
 # ── TAB 3: COST ANALYSIS ────────────────────────────────────────────────────
 with tab_cost:
@@ -387,7 +387,7 @@ with tab_cost:
             st.plotly_chart(build_cost_heatmap(cost), use_container_width=True)
 
         st.divider()
-        st.markdown('<div class="section-header">Tüm Rotalar — Birim Maliyet Tablosu (₺/birim)</div>',
+        st.markdown('<div class="section-header">All Routes — Unit Cost Table (TL/unit)</div>',
                     unsafe_allow_html=True)
         whs = list(WAREHOUSES.keys())
         df_cost = pd.DataFrame(
@@ -395,7 +395,7 @@ with tab_cost:
         ).T
         st.dataframe(df_cost, use_container_width=True)
     else:
-        st.info("Önce optimizasyonu çalıştır.")
+        st.info("Run optimisation first.")
 
 # ── TAB 4: SCENARIO COMPARISON ──────────────────────────────────────────────
 with tab_scenario:
@@ -403,7 +403,7 @@ with tab_scenario:
         all_res = st.session_state.all_results
         st.plotly_chart(build_scenario_comparison(all_res), use_container_width=True)
 
-        st.markdown('<div class="section-header">Senaryo Özet Tablosu</div>',
+        st.markdown('<div class="section-header">Scenario Summary Table</div>',
                     unsafe_allow_html=True)
 
         base = list(all_res.values())[0]["total_cost"]
@@ -413,41 +413,41 @@ with tab_scenario:
             pct = round((tc - base) / base * 100, 1) if base else 0
             rows.append({
                 "Senaryo": sname,
-                "Toplam Maliyet": f"₺{tc:,.2f}",
-                "Fark (₺)": f"{tc - base:+,.2f}",
-                "Fark (%)": f"{pct:+.1f}%",
-                "Aktif Rota": len(r["shipments"]),
+                "Total Cost": f"₺{tc:,.2f}",
+                "Delta (TL)": f"{tc - base:+,.2f}",
+                "Delta (%)": f"{pct:+.1f}%",
+                "Active Routes": len(r["shipments"]),
             })
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
         # Per-scenario shipment comparison
-        st.markdown('<div class="section-header">Senaryo Bazında Sevkiyat Planları</div>',
+        st.markdown('<div class="section-header">Shipment Plans per Scenario</div>',
                     unsafe_allow_html=True)
         for sname, r in all_res.items():
             with st.expander(f"📋 {sname}  —  ₺{r['total_cost']:,.0f}"):
-                rows2 = [{"Rota": f"{s} → {w}", "Birim": int(v)}
+                rows2 = [{"Route": f"{s} → {w}", "Birim": int(v)}
                          for (s, w), v in r["shipments"].items()]
                 st.dataframe(pd.DataFrame(rows2), hide_index=True, use_container_width=True)
     else:
-        st.info("Senaryo seç → Optimizasyonu Çalıştır → Sonucu Kaydet · Birden fazla senaryo kaydettikten sonra Kaydedilenleri Karşılaştır butonuna bas.")
+        st.info("Select scenario → Run Optimisation → Save Result · After saving multiple scenarios press Compare Saved.")
 
 # ── TAB 5: MONTE CARLO ──────────────────────────────────────────────────────
 with tab_mc:
     import plotly.graph_objects as go
 
-    st.markdown("Talep belirsizliği altında maliyet dağılımını simüle eder. "
-                "Her iterasyonda talep değerleri normal dağılımdan örneklenir ve LP çözülür.")
+    st.markdown("Simulates cost distribution under demand uncertainty. "
+                "Each iteration samples demand from a normal distribution and solves the LP.")
 
     col_mc1, col_mc2 = st.columns([1, 2])
     with col_mc1:
-        n_sim = st.slider("Simülasyon sayısı", 50, 500, 200, 50)
-        cv    = st.slider("Talep belirsizliği (CV)", 0.05, 0.35, 0.15, 0.05,
-                          help="Coefficient of variation — 0.15 = ±15% standart sapma")
-        run_mc = st.button("🎲 Simülasyonu Çalıştır", type="primary")
+        n_sim = st.slider("Number of simulations", 50, 500, 200, 50)
+        cv    = st.slider("Demand uncertainty (CV)", 0.05, 0.35, 0.15, 0.05,
+                          help="Coefficient of variation — 0.15 = ±15% std dev")
+        run_mc = st.button("🎲 Run Simulation", type="primary")
 
     if run_mc:
         if res and res["status"] == "Optimal":
-            with st.spinner(f"{n_sim} iterasyon çözülüyor..."):
+            with st.spinner(f"{n_sim} iterations solving..."):
                 st.session_state.mc_result = monte_carlo(
                     st.session_state.supply_used,
                     st.session_state.demand_used,
@@ -456,41 +456,41 @@ with tab_mc:
                     demand_cv=cv,
                 )
         else:
-            st.warning("Önce Optimizasyonu Çalıştır.")
+            st.warning("Run Optimisation first.")
 
     mc = st.session_state.mc_result
     if mc:
         with col_mc1:
-            st.metric("Ortalama Maliyet",   f"₺{mc['mean_cost']:,.0f}")
-            st.metric("Std. Sapma",          f"₺{mc['std_cost']:,.0f}")
-            st.metric("%5 Persentil",         f"₺{mc['p5_cost']:,.0f}")
-            st.metric("%95 Persentil",        f"₺{mc['p95_cost']:,.0f}")
-            st.metric("İnfeasible iterasyon", mc["n_infeasible"])
+            st.metric("Mean Cost",   f"₺{mc['mean_cost']:,.0f}")
+            st.metric("Std Dev",          f"₺{mc['std_cost']:,.0f}")
+            st.metric("5th Percentile",         f"₺{mc['p5_cost']:,.0f}")
+            st.metric("95th Percentile",        f"₺{mc['p95_cost']:,.0f}")
+            st.metric("Infeasible iterations", mc["n_infeasible"])
 
         with col_mc2:
             fig_hist = go.Figure()
             fig_hist.add_trace(go.Histogram(
                 x=mc["costs"], nbinsx=30,
                 marker_color="#3498DB", opacity=0.8,
-                name="Maliyet dağılımı",
+                name="Cost distribution",
             ))
             fig_hist.add_vline(x=mc["mean_cost"],  line_color="#E74C3C",
-                               line_dash="dash", annotation_text="Ortalama")
+                               line_dash="dash", annotation_text="Mean")
             fig_hist.add_vline(x=mc["p5_cost"],    line_color="#F39C12",
                                line_dash="dot",  annotation_text="%5")
             fig_hist.add_vline(x=mc["p95_cost"],   line_color="#F39C12",
                                line_dash="dot",  annotation_text="%95")
             fig_hist.update_layout(
-                title="Toplam Maliyet Dağılımı (Monte Carlo)",
-                xaxis_title="Toplam Maliyet (TL)",
-                yaxis_title="Frekans",
+                title="Total Cost Distribution (Monte Carlo)",
+                xaxis_title="Total Cost (TL)",
+                yaxis_title="Frequency",
                 paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                 font_color="white", height=350,
             )
             st.plotly_chart(fig_hist, use_container_width=True)
 
         # Route reliability heatmap
-        st.markdown('<div class="section-header">Rota Güvenilirliği (% iterasyonda kullanılıyor)</div>',
+        st.markdown('<div class="section-header">Route Reliability (% of iterations in use)</div>',
                     unsafe_allow_html=True)
         sources_list = list(SOURCES.keys())
         whs_list     = list(WAREHOUSES.keys())
@@ -510,78 +510,78 @@ with tab_mc:
         )
         st.plotly_chart(fig_rel, use_container_width=True)
     else:
-        st.info("Sol panelden senaryo seçip optimizasyonu çalıştır, ardından simülasyonu başlat.")
+        st.info("Select a scenario, run optimisation, then start the simulation.")
 
 
 # ── TAB 6: SENSITIVITY ANALYSIS ─────────────────────────────────────────────
 with tab_sens:
-    st.markdown("**Shadow price** (gölge fiyat): arz/talep 1 birim arttığında toplam maliyet ne kadar değişir?  \n"
-                "**Reduced cost**: Kullanılmayan bir rotanın devreye girmesi için birim maliyetinin ne kadar düşmesi gerekir?")
+    st.markdown("**Shadow price**: how much does total cost change when supply/demand increases by 1 unit?  \n"
+                "**Reduced cost**: how much must a non-basic route's unit cost decrease to enter the optimal solution?")
 
-    run_sens = st.button("🔍 Duyarlılık Analizini Çalıştır", type="primary")
+    run_sens = st.button("🔍 Run Sensitivity Analysis", type="primary")
 
     if run_sens:
         if res and res["status"] == "Optimal":
-            with st.spinner("Dual değişkenler hesaplanıyor..."):
+            with st.spinner("Computing dual variables..."):
                 st.session_state.sens_result = sensitivity_analysis(
                     st.session_state.supply_used,
                     st.session_state.demand_used,
                     st.session_state.cost_used,
                 )
         else:
-            st.warning("Önce Optimizasyonu Çalıştır.")
+            st.warning("Run Optimisation first.")
 
     sens = st.session_state.sens_result
     if sens:
         col_s1, col_s2 = st.columns(2)
 
         with col_s1:
-            st.markdown('<div class="section-header">Arz Gölge Fiyatları</div>',
+            st.markdown('<div class="section-header">Supply Shadow Prices</div>',
                         unsafe_allow_html=True)
-            st.caption("1 birim fazla arz → toplam maliyet bu kadar azalır (TL)")
+            st.caption("1 extra unit of supply reduces total cost by (TL)")
             df_sp_sup = pd.DataFrame([
-                {"Üretim Merkezi": s, "Gölge Fiyat (TL/birim)": v}
+                {"Production Centre": s, "Shadow Price (TL/unit)": v}
                 for s, v in sens["shadow_supply"].items()
             ])
             st.dataframe(df_sp_sup, hide_index=True, use_container_width=True)
 
             st.markdown("")
-            st.markdown('<div class="section-header">Talep Gölge Fiyatları</div>',
+            st.markdown('<div class="section-header">Demand Shadow Prices</div>',
                         unsafe_allow_html=True)
-            st.caption("1 birim fazla talep → toplam maliyet bu kadar artar (TL)")
+            st.caption("1 units fazla talep → toplam maliyet bu kadar artar (TL)")
             df_sp_dem = pd.DataFrame([
-                {"Depo": w, "Gölge Fiyat (TL/birim)": v}
+                {"Warehouse": w, "Shadow Price (TL/unit)": v}
                 for w, v in sens["shadow_demand"].items()
             ])
             st.dataframe(df_sp_dem, hide_index=True, use_container_width=True)
 
         with col_s2:
-            st.markdown('<div class="section-header">Kullanılmayan Rota Reduced Costs</div>',
+            st.markdown('<div class="section-header">Unused Route Reduced Costs</div>',
                         unsafe_allow_html=True)
-            st.caption("Birim maliyet bu kadar düşerse rota optimal plana girer")
+            st.caption("Route enters optimal plan if unit cost drops by this much")
             rc_rows = [
-                {"Rota": f"{s} → {w}", "Reduced Cost (TL/birim)": v}
+                {"Route": f"{s} → {w}", "Reduced Cost (TL/units)": v}
                 for (s, w), v in sorted(sens["reduced_costs"].items(),
                                         key=lambda x: abs(x[1]))
             ]
             st.dataframe(pd.DataFrame(rc_rows), hide_index=True, use_container_width=True)
     else:
-        st.info("Optimizasyonu çalıştır, ardından duyarlılık analizini başlat.")
+        st.info("Run optimisation, then start the sensitivity analysis.")
 
 
 # ── TAB 7: MULTI-OBJECTIVE PARETO ───────────────────────────────────────────
 with tab_pareto:
-    st.markdown("**Pareto Frontier** — maliyet (TL) ile toplam taşıma süresi (saat×birim) arasındaki denge.  \n"
-                "Her nokta farklı bir ağırlık kombinasyonunda elde edilen optimal çözümü gösterir.")
+    st.markdown("**Pareto Frontier** — trade-off between total cost (TL) and total weighted travel time (h·unit).  \n"
+                "Each point is an optimal solution at a different weight combination.")
 
     col_p1, col_p2 = st.columns([1, 3])
     with col_p1:
-        n_pts   = st.slider("Pareto nokta sayısı", 5, 20, 10)
-        run_par = st.button("🎯 Pareto Hesapla", type="primary")
+        n_pts   = st.slider("Number of Pareto points", 5, 20, 10)
+        run_par = st.button("🎯 Compute Pareto", type="primary")
 
     if run_par:
         if res and res["status"] == "Optimal":
-            with st.spinner("Pareto frontier hesaplanıyor..."):
+            with st.spinner("Computing Pareto frontier..."):
                 st.session_state.pareto_result = multi_objective_pareto(
                     st.session_state.supply_used,
                     st.session_state.demand_used,
@@ -589,7 +589,7 @@ with tab_pareto:
                     n_points=n_pts,
                 )
         else:
-            st.warning("Önce Optimizasyonu Çalıştır.")
+            st.warning("Run Optimisation first.")
 
     par = st.session_state.pareto_result
     if par and par["pareto"]:
@@ -604,14 +604,14 @@ with tab_pareto:
                 textposition="top center",
                 marker=dict(size=10, color=df_par["alpha"],
                             colorscale="Viridis", showscale=True,
-                            colorbar=dict(title="α (maliyet ağırlığı)")),
+                            colorbar=dict(title="alpha (cost weight)")),
                 line=dict(color="#3498DB", width=2),
-                hovertemplate="Maliyet: ₺%{x:,.0f}<br>Süre: %{y:.1f} saat<extra></extra>",
+                hovertemplate="Cost: ₺%{x:,.0f}<br>Time: %{y:.1f} h<extra></extra>",
             ))
             fig_par.update_layout(
-                title="Pareto Frontier — Maliyet vs. Taşıma Süresi",
-                xaxis_title="Toplam Maliyet (TL)",
-                yaxis_title="Toplam Taşıma Süresi (saat·birim)",
+                title="Pareto Frontier — Cost vs Travel Time",
+                xaxis_title="Total Cost (TL)",
+                yaxis_title="Total Travel Time (h·unit)",
                 height=420,
                 paper_bgcolor="#0e1117", plot_bgcolor="#0e1117",
                 font_color="white",
@@ -619,26 +619,26 @@ with tab_pareto:
             )
             st.plotly_chart(fig_par, use_container_width=True)
 
-        st.markdown('<div class="section-header">Pareto Nokta Tablosu</div>',
+        st.markdown('<div class="section-header">Pareto Points</div>',
                     unsafe_allow_html=True)
-        st.caption("α=1 → yalnızca maliyet minimize · α=0 → yalnızca süre minimize")
+        st.caption("α=1 → cost only · α=0 → time only")
         st.dataframe(
             pd.DataFrame(par["pareto"]).rename(columns={
-                "alpha": "α (maliyet ağırlığı)",
-                "cost": "Maliyet (TL)",
-                "time": "Süre (saat·birim)",
+                "alpha": "alpha (cost weight)",
+                "cost": "Cost (TL)",
+                "time": "Time (h·unit)",
             }),
             hide_index=True, use_container_width=True,
         )
     else:
-        st.info("Optimizasyonu çalıştır, ardından Pareto hesapla butonuna bas.")
+        st.info("Run optimisation, then press Compute Pareto.")
 
 
 # ── PDF EXPORT (visible in sidebar after result exists) ─────────────────────
 if res and res["status"] == "Optimal":
     with st.sidebar:
         st.divider()
-        if st.button("📄 PDF Rapor İndir", use_container_width=True):
+        if st.button("📄 Download PDF Report", use_container_width=True):
             pdf_bytes = generate_pdf(
                 result=res,
                 supply=st.session_state.supply_used,
@@ -649,7 +649,7 @@ if res and res["status"] == "Optimal":
                 mc_result=st.session_state.mc_result,
             )
             st.download_button(
-                label="⬇️ PDF'i İndir",
+                label="⬇️ Download PDF",
                 data=pdf_bytes,
                 file_name=f"logistics_report_{st.session_state.scenario_run}.pdf",
                 mime="application/pdf",
@@ -668,28 +668,28 @@ with tab_model:
         st.markdown(formulation_text(sup_disp, dem_disp))
 
     with col_r:
-        st.markdown('<div class="section-header">Arz & Talep</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Arz & Demand</div>', unsafe_allow_html=True)
 
         df_sup = pd.DataFrame([
-            {"Üretim Merkezi": s, "Kapasite (birim)": v}
+            {"Production Centre": s, "Capacity (units)": v}
             for s, v in sup_disp.items()
         ])
-        df_sup.loc[len(df_sup)] = ["**TOPLAM**", sum(sup_disp.values())]
+        df_sup.loc[len(df_sup)] = ["**TOTAL**", sum(sup_disp.values())]
         st.dataframe(df_sup, hide_index=True, use_container_width=True)
 
         st.markdown("")
         df_dem = pd.DataFrame([
-            {"Depo": w, "Talep (birim)": v}
+            {"Warehouse": w, "Demand (units)": v}
             for w, v in dem_disp.items()
         ])
-        df_dem.loc[len(df_dem)] = ["**TOPLAM**", sum(dem_disp.values())]
+        df_dem.loc[len(df_dem)] = ["**TOTAL**", sum(dem_disp.values())]
         st.dataframe(df_dem, hide_index=True, use_container_width=True)
 
     if res and res["status"] == "Optimal":
         st.divider()
-        st.markdown('<div class="section-header">Çözüm Özeti</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Solution Summary</div>', unsafe_allow_html=True)
         slack_df = pd.DataFrame([
-            {"Kaynak": s, "Boşta Kapasite": int(v)}
+            {"Source": s, "Slack Capacity": int(v)}
             for s, v in res["slack"].items()
         ])
         st.dataframe(slack_df, hide_index=True, use_container_width=True)

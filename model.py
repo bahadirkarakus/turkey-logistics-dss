@@ -102,34 +102,34 @@ def formulation_text(supply: dict, demand: dict) -> str:
     n, m       = len(sources), len(warehouses)
 
     lines = [
-        "**Matematiksel Formülasyon — Ulaştırma Problemi (LP)**",
+        "**Mathematical Formulation — Transportation Problem (LP)**",
         "",
-        f"**Kümeler:**  I = {{{', '.join(sources)}}}",
-        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+        f"**Sets:**  I = {{{', '.join(sources)}}}",
+        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
         f"J = {{{', '.join(warehouses)}}}",
         "",
-        "**Parametreler:**",
-        "- $c_{ij}$ = birim taşıma maliyeti (TL/birim), kaynak $i$ → depo $j$",
-        "- $s_i$   = arz kapasitesi, kaynak $i$",
-        "- $d_j$   = talep, depo $j$",
+        "**Parameters:**",
+        "- $c_{ij}$ = unit transport cost (TL/unit), source $i$ → warehouse $j$",
+        "- $s_i$   = supply capacity at source $i$",
+        "- $d_j$   = demand at warehouse $j$",
         "",
-        "**Karar Değişkenleri:**",
-        "$$x_{ij} \\geq 0 \\quad \\forall i \\in I, j \\in J$$",
+        "**Decision Variables:**",
+        "$$x_{ij} \\geq 0 \\quad \\forall i \\in I,\\; j \\in J$$",
         "",
-        "**Amaç Fonksiyonu (Minimize):**",
-        "$$Z = \\sum_{i \\in I} \\sum_{j \\in J} c_{ij} x_{ij}$$",
+        "**Objective Function (Minimize):**",
+        "$$Z = \\sum_{i \\in I} \\sum_{j \\in J} c_{ij}\\, x_{ij}$$",
         "",
-        "**Arz Kısıtları:**",
+        "**Supply Constraints:**",
         "$$\\sum_{j \\in J} x_{ij} \\leq s_i \\quad \\forall i \\in I$$",
         "",
-        "**Talep Kısıtları:**",
+        "**Demand Constraints:**",
         "$$\\sum_{i \\in I} x_{ij} \\geq d_j \\quad \\forall j \\in J$$",
         "",
-        f"**Model Boyutu:** {n*m} karar değişkeni, "
-        f"{n} arz + {m} talep = {n+m} kısıt",
+        f"**Model size:** {n*m} decision variables, "
+        f"{n} supply + {m} demand = {n+m} constraints",
         "",
-        f"**Toplam Arz:** {sum(supply.values())} birim",
-        f"**Toplam Talep:** {sum(demand.values())} birim",
-        f"**Fazla Kapasite:** {sum(supply.values()) - sum(demand.values())} birim",
+        f"**Total Supply:** {sum(supply.values())} units",
+        f"**Total Demand:** {sum(demand.values())} units",
+        f"**Slack Capacity:** {sum(supply.values()) - sum(demand.values())} units",
     ]
     return "\n".join(lines)
