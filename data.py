@@ -3,6 +3,9 @@ Turkey Logistics Network — Data Layer
 Production centres → Warehouses transportation problem data.
 """
 
+from __future__ import annotations
+import requests
+
 # ---------------------------------------------------------------------------
 # NETWORK NODES
 # ---------------------------------------------------------------------------
@@ -137,3 +140,47 @@ def get_scenario_data(scenario_name: str,
 
     cost = compute_cost_matrix(fuel_mult)
     return supply, demand, cost
+
+
+# ---------------------------------------------------------------------------
+# OSRM — Real road distances (optional, falls back to DISTANCES on failure)
+# ---------------------------------------------------------------------------
+
+def fetch_real_distances(timeout: int = 6) -> tuple[dict, dict]:
+    """
+    Fetches real road distances and durations via the public OSRM demo server.
+    Returns (distances_km, durations_h) in the same shape as DISTANCES.
+    Falls back to the hardcoded DISTANCES on any error.
+    """
+    sources    = list(SOURCES.keys())
+    warehouses = list(WAREHOUSES.keys())
+    base_url   = "http://router.project-osrm.org/route/v1/driving"
+
+    new_distances: dict[str, list[float]] = {s: [] for s in sources}
+    new_durations: dict[str, list[float]] = {s: [] for s in sources}
+
+    try:
+        for src in sources:
+            src_lat = SOURCES[src]["lat"]
+            src_lon = SOURCES[src]["lon"]
+            for wh in warehouses:
+                wh_lat = WAREHOUSES[wh]["lat"]
+                wh_lon = WAREHOUSES[wh]["lon"]
+                url = (f"{base_url}/{src_lon},{src_lat};"
+                       f"{wh_lon},{wh_lat}?overview=false")
+                r = requests.get(url, timeout=timeout)
+                r.raise_for_status()
+                data = r.json()
+                route = data["routes"][0]
+                new_distances[src].append(round(route["distance"] / 1000, 1))  # m → km
+                new_durations[src].append(round(route["duration"] / 3600, 2))  # s → h
+    except Exception:
+        # Return hardcoded fallback
+        durations = {
+            src: [DISTANCES[src][j] / PARAMS["avg_speed_kmh"]
+                  for j in range(len(warehouses))]
+            for src in sources
+        }
+        return DISTANCES, durations
+
+    return new_distances, new_durations
