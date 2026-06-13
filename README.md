@@ -69,4 +69,4 @@ turkey_logistics/
 ```
 
 ---
-*IE303 Operations Research I — inspired project · IUS FENS Industrial Engineering*
+
