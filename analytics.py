@@ -196,13 +196,19 @@ def multi_objective_pareto(supply: dict, demand: dict, cost: dict,
         if c is not None:
             points.append({"alpha": round(float(a), 3), "cost": c, "time": t})
 
-    # Remove dominated points
+    # Remove strictly dominated points
+    # q dominates p if q is at least as good on both objectives
+    # AND strictly better on at least one
     pareto = [
         p for p in points
         if not any(
-            q["cost"] <= p["cost"] and q["time"] <= p["time"] and q != p
+            q["cost"] <= p["cost"] and q["time"] <= p["time"]
+            and (q["cost"] < p["cost"] or q["time"] < p["time"])
             for q in points
         )
     ]
+    # Fallback: if all points are equal, keep all (degenerate frontier)
+    if not pareto:
+        pareto = points
 
     return {"pareto": pareto, "all_points": points}
