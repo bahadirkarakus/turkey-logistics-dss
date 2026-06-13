@@ -69,7 +69,7 @@ with st.sidebar:
 
     # Scenario picker
     scenario = st.selectbox(
-        "Senaryo",
+        "Scenario",
         list(SCENARIOS.keys()),
         help="Select the scenario to run.",
     )
@@ -192,7 +192,7 @@ if save_btn:
             "shipments":  st.session_state.result["shipments"],
         }
         st.session_state.all_results = st.session_state.saved_scenarios
-        st.sidebar.success(f"✓ '{key}' kaydedildi")
+        st.sidebar.success(f"✓ '{key}' saved")
     else:
         st.sidebar.warning("Run optimisation first.")
 
@@ -364,7 +364,7 @@ with tab_plan:
             })
         st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
-        st.success(f"**Toplam Minimum Cost: ₺{res['total_cost']:,.2f}**")
+        st.success(f"**Minimum Total Cost: ₺{res['total_cost']:,.2f}**")
 
     else:
         st.info("Select a scenario from the sidebar and press **Run Optimisation**.")
@@ -407,7 +407,7 @@ with tab_scenario:
             tc  = r["total_cost"]
             pct = round((tc - base) / base * 100, 1) if base else 0
             rows.append({
-                "Senaryo": sname,
+                "Scenario": sname,
                 "Total Cost": f"₺{tc:,.2f}",
                 "Delta (TL)": f"{tc - base:+,.2f}",
                 "Delta (%)": f"{pct:+.1f}%",
