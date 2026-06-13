@@ -63,12 +63,7 @@ st.markdown("""
 # SIDEBAR
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/"
-        "Flag_of_Turkey.svg/320px-Flag_of_Turkey.svg.png",
-        width=80,
-    )
-    st.markdown("## 🚛 Turkey Logistics DSS")
+    st.markdown("## 🇹🇷 🚛 Turkey Logistics DSS")
     st.caption("Transportation Problem Optimization Tool")
     st.divider()
 
