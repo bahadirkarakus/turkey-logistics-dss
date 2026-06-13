@@ -282,7 +282,7 @@ with tab_plan:
                 return "color: #68d391; font-weight: 600"
 
             st.dataframe(
-                df_plan.style.applymap(
+                df_plan.style.map(
                     highlight,
                     subset=[w for w in whs],
                 ),
