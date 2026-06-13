@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test:
-    name: Import & smoke test
+    name: pytest suite
     runs-on: ubuntu-latest
 
     steps:
@@ -27,69 +27,5 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Check all modules import cleanly
-        run: |
-          python -c "import data, model, analytics, visualization, report"
-          echo "All imports OK"
-
-      - name: Smoke test — solve Normal Season
-        run: |
-          python - <<'PYEOF'
-          from data import get_scenario_data
-          from model import solve
-
-          supply, demand, cost = get_scenario_data("Normal Season")
-          result = solve(supply, demand, cost)
-
-          assert result["status"] == "Optimal", f"Expected Optimal, got {result['status']}"
-          assert result["total_cost"] > 0, "Total cost must be positive"
-          assert len(result["shipments"]) > 0, "No shipments in optimal plan"
-
-          print(f"Status      : {result['status']}")
-          print(f"Total cost  : TL {result['total_cost']:,.2f}")
-          print(f"Active routes: {len(result['shipments'])} / 40")
-          PYEOF
-
-      - name: Smoke test — sensitivity analysis
-        run: |
-          python - <<'PYEOF'
-          from data import get_scenario_data
-          from analytics import sensitivity_analysis
-
-          supply, demand, cost = get_scenario_data("Normal Season")
-          sens = sensitivity_analysis(supply, demand, cost)
-
-          assert sens["status"] == "Optimal"
-          assert len(sens["shadow_supply"]) == 5
-          assert len(sens["shadow_demand"]) == 8
-          print("Sensitivity analysis OK")
-          PYEOF
-
-      - name: Smoke test — Monte Carlo (50 iterations)
-        run: |
-          python - <<'PYEOF'
-          from data import get_scenario_data
-          from analytics import monte_carlo
-
-          supply, demand, cost = get_scenario_data("Normal Season")
-          mc = monte_carlo(supply, demand, cost, n_simulations=50)
-
-          assert mc["n_feasible"] > 0, "All MC iterations infeasible"
-          assert mc["mean_cost"] > 0
-          print(f"MC mean cost: TL {mc['mean_cost']:,.2f} ({mc['n_feasible']}/50 feasible)")
-          PYEOF
-
-      - name: Smoke test — PDF generation
-        run: |
-          python - <<'PYEOF'
-          from data import get_scenario_data
-          from model import solve
-          from report import generate_pdf
-
-          supply, demand, cost = get_scenario_data("Normal Season")
-          result = solve(supply, demand, cost)
-          pdf_bytes = generate_pdf(result, supply, demand, cost, "Normal Season")
-
-          assert len(pdf_bytes) > 1000, "PDF output too small"
-          print(f"PDF size: {len(pdf_bytes):,} bytes — OK")
-          PYEOF
+      - name: Run pytest
+        run: python -m pytest tests/ -v --tb=short

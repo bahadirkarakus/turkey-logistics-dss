@@ -21,6 +21,7 @@ from visualization import (
 from analytics import sensitivity_analysis, monte_carlo, multi_objective_pareto
 from report import generate_pdf
 from excel_export import generate_excel
+from multiperiod import solve_multiperiod, QUARTERS, HOLDING_COST_PER_UNIT_PER_QUARTER
 
 # ---------------------------------------------------------------------------
 # PAGE CONFIG
@@ -284,11 +285,11 @@ st.markdown("")
 # ---------------------------------------------------------------------------
 # TABS
 # ---------------------------------------------------------------------------
-tab_map, tab_plan, tab_cost, tab_scenario, tab_mc, tab_sens, tab_pareto, tab_model = st.tabs([
+tab_map, tab_plan, tab_cost, tab_scenario, tab_mc, tab_sens, tab_pareto, tab_mp, tab_model = st.tabs([
     "🗺️ Map", "📦 Optimal Plan", "💰 Cost Analysis",
     "📊 Scenario Comparison", "🎲 Monte Carlo",
     "🔍 Sensitivity Analysis", "🎯 Multi-Objective",
-    "📐 Model Formulation",
+    "📅 Multi-Period", "📐 Model Formulation",
 ])
 
 # ── TAB 1: MAP ──────────────────────────────────────────────────────────────
@@ -692,7 +693,99 @@ if res and res["status"] == "Optimal":
             )
 
 
-# ── TAB 8: MODEL FORMULATION ─────────────────────────────────────────────────
+# ── TAB 8: MULTI-PERIOD ──────────────────────────────────────────────────────
+with tab_mp:
+    st.markdown(
+        "**4-quarter LP** with inventory carryover. "
+        "Annual capacity is split evenly across quarters; "
+        "seasonal demand multipliers shift load between periods."
+    )
+    col_mp1, col_mp2 = st.columns([1, 3])
+    with col_mp1:
+        mp_scenario = st.selectbox("Scenario", list(SCENARIOS.keys()), key="mp_scen")
+        mp_holding  = st.number_input("Holding cost (TL/unit/quarter)",
+                                       min_value=0.0, max_value=50.0,
+                                       value=float(HOLDING_COST_PER_UNIT_PER_QUARTER),
+                                       step=1.0, key="mp_hold")
+        mp_run = st.button("▶ Solve Multi-Period", type="primary",
+                            use_container_width=True, key="mp_btn")
+
+    if mp_run:
+        with st.spinner("Solving 4-quarter LP..."):
+            mp_result = solve_multiperiod(mp_scenario, holding_cost=mp_holding)
+            st.session_state["mp_result"] = mp_result
+
+    mp_res = st.session_state.get("mp_result")
+    if mp_res and mp_res["status"] == "Optimal":
+        with col_mp2:
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Total Cost", f"₺{mp_res['total_cost']:,.0f}")
+            k2.metric("Transport Cost", f"₺{mp_res['transport_cost']:,.0f}")
+            k3.metric("Holding Cost", f"₺{mp_res['holding_cost']:,.0f}")
+
+        st.divider()
+        # Quarter-by-quarter summary table
+        import plotly.graph_objects as go
+        q_names   = [q["period"] for q in mp_res["quarters"]]
+        q_trans   = [q["transport_cost"] for q in mp_res["quarters"]]
+        q_hold    = [q["holding_cost"]   for q in mp_res["quarters"]]
+        q_inv     = [sum(q["inventory"].values()) for q in mp_res["quarters"]]
+        q_routes  = [len(q["shipments"]) for q in mp_res["quarters"]]
+
+        fig_mp = go.Figure()
+        fig_mp.add_trace(go.Bar(name="Transport Cost", x=q_names, y=q_trans,
+                                marker_color="#3498DB",
+                                text=[f"₺{v:,.0f}" for v in q_trans],
+                                textposition="inside"))
+        fig_mp.add_trace(go.Bar(name="Holding Cost", x=q_names, y=q_hold,
+                                marker_color="#F39C12",
+                                text=[f"₺{v:,.0f}" for v in q_hold],
+                                textposition="inside"))
+        fig_mp.add_trace(go.Scatter(name="End Inventory (units)", x=q_names, y=q_inv,
+                                    yaxis="y2", mode="lines+markers+text",
+                                    text=[f"{v:.0f}" for v in q_inv],
+                                    textposition="top center",
+                                    line=dict(color="#2ECC71", width=2, dash="dot"),
+                                    marker=dict(size=9)))
+        fig_mp.update_layout(
+            barmode="stack",
+            title="Cost Breakdown & Inventory by Quarter",
+            yaxis=dict(title="Cost (TL)", gridcolor="#333"),
+            yaxis2=dict(title="Inventory (units)", overlaying="y", side="right"),
+            paper_bgcolor="#0e1117", plot_bgcolor="#0e1117", font_color="white",
+            xaxis=dict(gridcolor="#333"),
+            legend=dict(orientation="h", y=1.08),
+            height=380,
+        )
+        st.plotly_chart(fig_mp, use_container_width=True)
+
+        st.divider()
+        st.markdown('<div class="section-header">Quarter Details</div>',
+                    unsafe_allow_html=True)
+        for q in mp_res["quarters"]:
+            with st.expander(f"**{q['period']}** — {len(q['shipments'])} routes · "
+                             f"TL {q['transport_cost']:,.0f} transport · "
+                             f"{sum(q['inventory'].values()):.0f} units inventory"):
+                rows = []
+                for (s, w), units in sorted(q["shipments"].items(), key=lambda x: -x[1]):
+                    rows.append({"Source": s, "Warehouse": w,
+                                 "Units": int(units),
+                                 "Demand": q["demand"][w]})
+                st.dataframe(pd.DataFrame(rows), use_container_width=True,
+                             hide_index=True)
+                inv_df = pd.DataFrame([
+                    {"Source": s, "End Inventory (units)": int(v)}
+                    for s, v in q["inventory"].items() if v > 0
+                ])
+                if not inv_df.empty:
+                    st.dataframe(inv_df, use_container_width=True, hide_index=True)
+    elif mp_res:
+        st.error(f"Solver status: {mp_res['status']} — check supply/demand balance.")
+    else:
+        st.info("Press **Solve Multi-Period** to run the 4-quarter LP.")
+
+
+# ── TAB 9: MODEL FORMULATION ─────────────────────────────────────────────────
 with tab_model:
     sup_disp = st.session_state.supply_used or {s: SOURCES[s]["capacity"] for s in SOURCES}
     dem_disp = st.session_state.demand_used or {w: WAREHOUSES[w]["demand"] for w in WAREHOUSES}
