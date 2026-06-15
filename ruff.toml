@@ -1,0 +1,19 @@
+# Ruff linter/formatter configuration.
+target-version = "py311"
+line-length = 100
+
+[lint]
+# pyflakes (F), pycodestyle errors (E), import sorting (I),
+# pyupgrade (UP), flake8-bugbear (B).
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line length is enforced loosely; many tables/URLs exceed it
+    "E741",   # allow short math-style names (l, I) used in formulas
+    "E701",   # allow compact `if cond: stmt` (used for session-state init)
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["E712"]   # allow `== True/False` style assertions in tests
+
+[format]
+quote-style = "double"

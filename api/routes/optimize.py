@@ -1,11 +1,14 @@
 """Optimization endpoints."""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from fastapi import APIRouter, HTTPException
-from api.schemas import SolveRequest, SolveResponse, ShipmentItem
-from data import get_scenario_data, compute_co2_matrix, SCENARIOS
+
+from api.schemas import ShipmentItem, SolveRequest, SolveResponse
+from data import SCENARIOS, compute_co2_matrix, get_scenario_data
 from model import solve
 
 router = APIRouter(prefix="/solve", tags=["Optimization"])

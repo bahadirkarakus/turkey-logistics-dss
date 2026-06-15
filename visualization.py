@@ -3,12 +3,12 @@ Visualization — Folium map + Plotly charts.
 """
 
 from __future__ import annotations
+
 import folium
 import plotly.graph_objects as go
-import plotly.express as px
 from folium.plugins import AntPath
-from data import SOURCES, WAREHOUSES
 
+from data import SOURCES, WAREHOUSES
 
 # ---------------------------------------------------------------------------
 # COLOUR PALETTE
@@ -41,8 +41,8 @@ def build_map(shipments: dict, supply: dict, demand: dict) -> folium.Map:
 
     # Draw routes
     for idx, ((src, wh), units) in enumerate(shipments.items()):
-        src_lat = SOURCES[src]["lat"]; src_lon = SOURCES[src]["lon"]
-        wh_lat  = WAREHOUSES[wh]["lat"]; wh_lon  = WAREHOUSES[wh]["lon"]
+        src_lat, src_lon = SOURCES[src]["lat"], SOURCES[src]["lon"]
+        wh_lat,  wh_lon  = WAREHOUSES[wh]["lat"], WAREHOUSES[wh]["lon"]
         weight  = 2 + int(10 * units / max_ship)
         color   = ROUTE_COLORS[idx % len(ROUTE_COLORS)]
 

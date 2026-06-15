@@ -2,6 +2,7 @@
 Disruption simulation — models supply chain disruptions and computes re-routing.
 """
 from __future__ import annotations
+
 from model import solve
 
 

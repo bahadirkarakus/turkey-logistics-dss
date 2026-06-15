@@ -1,7 +1,8 @@
 """Shared pytest fixtures."""
 
 import pytest
-from data import get_scenario_data, compute_co2_matrix
+
+from data import compute_co2_matrix, get_scenario_data
 from model import solve
 
 

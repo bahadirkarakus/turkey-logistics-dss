@@ -4,15 +4,18 @@ Run: uvicorn api.main:app --reload --port 8000
 Docs: http://localhost:8000/docs
 """
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes.optimize  import router as optimize_router
+
 from api.routes.analytics import router as analytics_router
-from data import SCENARIOS
+from api.routes.optimize import router as optimize_router
 from api.schemas import ScenarioInfo
+from data import SCENARIOS
 
 app = FastAPI(
     title="Turkey Logistics DSS API",

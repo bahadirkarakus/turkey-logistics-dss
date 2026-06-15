@@ -1,8 +1,8 @@
 """Tests for analytics — sensitivity, Monte Carlo, Pareto."""
 
 import pytest
-from data import get_scenario_data, SOURCES, WAREHOUSES
-from analytics import sensitivity_analysis, monte_carlo, multi_objective_pareto
+
+from analytics import monte_carlo, multi_objective_pareto, sensitivity_analysis
 
 
 class TestSensitivity:

@@ -148,6 +148,35 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+For development (linting + coverage), install the dev extras instead:
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .                 # lint
+python -m pytest tests/ --cov=.   # tests + coverage
+```
+
+## ⚙️ Configuration — no hardcoded data
+
+The network is defined entirely by editable files under `network/` — **no code
+changes are needed to model a different network**:
+
+| File | Contents |
+|---|---|
+| `network/sources.csv` | Production centres (capacity, lat/lon, colour) |
+| `network/warehouses.csv` | Warehouses (demand, lat/lon, colour) |
+| `network/distances.csv` | Source × warehouse road distances (km) |
+| `network/tolls.csv` | Source × warehouse HGS/OGS tolls (TL) |
+| `network/config.yaml` | Cost parameters + scenario definitions |
+
+Runtime overrides via environment variables:
+
+```bash
+NETWORK_DIR=/path/to/my_network   # load a completely different network
+FUEL_PRICE_TL_PER_LITRE=55        # override any cost parameter
+LP_SOLVER=highs                   # swap CBC → HiGHS (falls back to CBC)
+```
+
 ## 🐳 Run with Docker Compose (API + Streamlit)
 
 ```bash
@@ -159,14 +188,14 @@ docker compose up
 ## 🧪 Tests
 
 ```bash
-python -m pytest tests/ -v   # 124 tests
+python -m pytest tests/ -v   # 138 tests (LP, analytics, API, solver)
 ```
 
 ## 📦 Tech Stack
 
 | Layer | Tools |
 |---|---|
-| Optimization | PuLP 2.8 · CBC Simplex · Binary MIP (p-median) |
+| Optimization | PuLP · CBC Simplex / HiGHS (pluggable via `LP_SOLVER`) · Binary MIP (p-median) |
 | Forecasting | Holt double-exponential smoothing (NumPy) |
 | Web App | Streamlit (11-tab dashboard) |
 | REST API | FastAPI + Pydantic + Uvicorn |
@@ -175,16 +204,24 @@ python -m pytest tests/ -v   # 124 tests
 | Analytics | NumPy · SciPy |
 | Export | fpdf2 (PDF) · openpyxl (Excel) |
 | Road Distances | OSRM API (with fallback) |
-| CI/CD | GitHub Actions · Streamlit Community Cloud |
+| Config | CSV + YAML network files · env-var overrides |
+| Quality | Ruff lint · pytest-cov coverage |
+| CI/CD | GitHub Actions (ruff + pytest) · Streamlit Community Cloud |
 | Containerisation | Docker Compose |
 
 ## 📁 Project Structure
 
 ```
 turkey_logistics/
-├── app.py               # Streamlit dashboard (11 tabs)
+├── app.py               # Streamlit orchestrator (wires sidebar → solver → tabs)
+├── views/               # One module per dashboard tab + sidebar/header/styles
+│   ├── sidebar.py  header.py  styles.py
+│   └── tab_map.py  tab_plan.py  tab_cost.py  …  tab_model.py
+├── network/             # Editable network data (no hardcoding)
+│   ├── sources.csv  warehouses.csv  distances.csv  tolls.csv  config.yaml
+├── solver.py            # Central PuLP solver factory (CBC / HiGHS via LP_SOLVER)
 ├── model.py             # PuLP LP solver (+ CO₂ budget constraint)
-├── data.py              # Network data, scenarios, OSRM client
+├── data.py              # Loads network/ files; OSRM /table client (cached)
 ├── analytics.py         # Sensitivity, Monte Carlo, Pareto
 ├── visualization.py     # Folium maps + Plotly charts
 ├── multiperiod.py       # 4-quarter LP with inventory
@@ -194,13 +231,12 @@ turkey_logistics/
 ├── excel_export.py      # Excel report generator
 ├── report.py            # PDF report generator
 ├── report_ieee.tex      # IEEE-format LaTeX paper
-├── api/                 # FastAPI backend
-│   ├── main.py
-│   ├── schemas.py
-│   └── routes/
-├── tests/               # pytest suite (124 tests)
+├── api/                 # FastAPI backend (main.py, schemas.py, routes/)
+├── tests/               # pytest suite (138 tests, incl. API + solver)
+├── ruff.toml            # Linter configuration
 ├── docker-compose.yml
-└── requirements.txt
+├── requirements.txt     # Runtime deps
+└── requirements-dev.txt # + ruff, pytest-cov, httpx
 ```
 
 ---

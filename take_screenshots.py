@@ -4,6 +4,7 @@ Runs against the local Streamlit app on port 8502.
 """
 
 import asyncio
+
 from playwright.async_api import async_playwright
 
 BASE = "http://localhost:8502"

@@ -3,9 +3,13 @@ P-Median Facility Location — finds p optimal hub locations from candidate citi
 to minimise total demand-weighted distance (km · units).
 """
 from __future__ import annotations
+
 import math
+
 import pulp
+
 from data import SOURCES, WAREHOUSES
+from solver import get_solver
 
 # All 13 cities as candidate facility locations
 ALL_LOCATIONS: dict[str, dict] = {
@@ -96,7 +100,7 @@ def solve_pmedian(
         for j in candidates:
             prob += x[(i, j)] <= y[j], f"link_{i}_{j}"
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(get_solver())
     status = pulp.LpStatus[prob.status]
 
     if status != "Optimal":

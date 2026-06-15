@@ -20,8 +20,11 @@ Initial inventory  : inv[i,0] = 0
 """
 
 from __future__ import annotations
+
 import pulp
-from data import SOURCES, WAREHOUSES, SCENARIOS, compute_cost_matrix
+
+from data import SCENARIOS, SOURCES, WAREHOUSES, compute_cost_matrix
+from solver import get_solver
 
 # Quarterly demand multipliers per scenario
 # Format: {scenario_name: [Q1_mult, Q2_mult, Q3_mult, Q4_mult]}
@@ -131,7 +134,7 @@ def solve_multiperiod(
                 f"demand_{j}_{t}",
             )
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(get_solver())
     status = pulp.LpStatus[prob.status]
 
     if status != "Optimal":

@@ -1,9 +1,8 @@
 """Pydantic request/response models for the Turkey Logistics API."""
 
 from __future__ import annotations
-from typing import Optional
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ── Shared types ─────────────────────────────────────────────────────────────
 
@@ -17,8 +16,8 @@ Cost   = dict[str, dict[str, float]]  # {source: {warehouse: cost}}
 class SolveRequest(BaseModel):
     scenario:        str   = Field("Normal Season", description="Scenario name from SCENARIOS")
     fuel_multiplier: float = Field(1.0, ge=0.5, le=3.0)
-    custom_supply:   Optional[Supply] = None
-    custom_demand:   Optional[Demand] = None
+    custom_supply:   Supply | None = None
+    custom_demand:   Demand | None = None
 
 class ShipmentItem(BaseModel):
     source:     str
@@ -30,8 +29,8 @@ class ShipmentItem(BaseModel):
 
 class SolveResponse(BaseModel):
     status:      str
-    total_cost:  Optional[float]
-    total_co2:   Optional[float]
+    total_cost:  float | None
+    total_co2:   float | None
     active_routes: int
     shipments:   list[ShipmentItem]
     slack:       dict[str, float]

@@ -1,6 +1,7 @@
 import pytest
+
+from data import SOURCES, get_scenario_data
 from disruption import simulate_disruption
-from data import SOURCES, WAREHOUSES, get_scenario_data
 
 
 @pytest.fixture(scope="module")
@@ -42,7 +43,7 @@ class TestDisabledSource:
     def test_lost_routes_only_from_disabled(self, base_data):
         s, d, c = base_data
         r = simulate_disruption(s, d, c, disabled_sources=["İstanbul"])
-        for src, wh in r["lost_routes"]:
+        for src, _wh in r["lost_routes"]:
             assert src == "İstanbul"
 
     def test_cost_does_not_decrease(self, base_data):

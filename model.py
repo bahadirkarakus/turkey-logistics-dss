@@ -3,7 +3,10 @@ Transportation LP Model — PuLP solver wrapper.
 """
 
 from __future__ import annotations
+
 import pulp
+
+from solver import get_solver
 
 
 def solve(
@@ -69,7 +72,7 @@ def solve(
         )
 
     # Solve (suppress solver output)
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(get_solver())
 
     status = pulp.LpStatus[prob.status]
 

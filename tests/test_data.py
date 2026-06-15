@@ -1,9 +1,17 @@
 """Tests for data layer — network topology, cost/CO₂ matrices, scenarios."""
 
 import pytest
+
 from data import (
-    SOURCES, WAREHOUSES, DISTANCES, TOLLS, PARAMS,
-    SCENARIOS, get_scenario_data, compute_cost_matrix, compute_co2_matrix,
+    DISTANCES,
+    PARAMS,
+    SCENARIOS,
+    SOURCES,
+    TOLLS,
+    WAREHOUSES,
+    compute_co2_matrix,
+    compute_cost_matrix,
+    get_scenario_data,
 )
 
 
@@ -77,8 +85,8 @@ class TestCO2Matrix:
         assert all(len(v) == 8 for v in co2_matrix.values())
 
     def test_all_positive(self, co2_matrix):
-        for src, row in co2_matrix.items():
-            for wh, v in row.items():
+        for row in co2_matrix.values():
+            for v in row.values():
                 assert v > 0
 
     def test_proportional_to_distance(self, co2_matrix):
@@ -87,7 +95,7 @@ class TestCO2Matrix:
 
     def test_ipcc_factor(self):
         """Manually verify IPCC CO₂ factor is applied correctly."""
-        from data import DISTANCES, PARAMS
+        from data import DISTANCES
         warehouses = list(WAREHOUSES.keys())
         co2 = compute_co2_matrix()
         src = "Adana"

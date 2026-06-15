@@ -1,16 +1,23 @@
 """Analytics endpoints — sensitivity, Monte Carlo, Pareto."""
 
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from fastapi import APIRouter, HTTPException
+
+from analytics import monte_carlo, multi_objective_pareto, sensitivity_analysis
 from api.schemas import (
-    SensitivityRequest, SensitivityResponse,
-    MonteCarloRequest, MonteCarloResponse,
-    ParetoRequest, ParetoResponse, ParetoPoint,
+    MonteCarloRequest,
+    MonteCarloResponse,
+    ParetoPoint,
+    ParetoRequest,
+    ParetoResponse,
+    SensitivityRequest,
+    SensitivityResponse,
 )
-from data import get_scenario_data, SCENARIOS
-from analytics import sensitivity_analysis, monte_carlo, multi_objective_pareto
+from data import SCENARIOS, get_scenario_data
 
 router = APIRouter(tags=["Analytics"])
 

@@ -4,12 +4,12 @@ Exports the optimisation result to a formatted .xlsx workbook.
 """
 
 from __future__ import annotations
-from datetime import datetime
+
 import io
+from datetime import datetime
+
 import openpyxl
-from openpyxl.styles import (
-    PatternFill, Font, Alignment, Border, Side, numbers
-)
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 # ── colour palette (matches dark-theme brand) ───────────────────────────────
@@ -107,7 +107,7 @@ def generate_excel(result: dict, supply: dict, demand: dict,
     headers = ["Source", "Warehouse", "Units", "Unit Cost (TL)",
                "Total Cost (TL)", "CO₂/unit (kg)", "Total CO₂ (kg)"]
     widths  = [16, 14, 10, 16, 16, 16, 16]
-    for j, (h, w) in enumerate(zip(headers, widths), start=1):
+    for j, (h, w) in enumerate(zip(headers, widths, strict=True), start=1):
         _hdr(ws2, 3, j, h, w)
 
     sorted_routes = sorted(result["shipments"].items(), key=lambda x: -x[1])
@@ -167,7 +167,7 @@ def generate_excel(result: dict, supply: dict, demand: dict,
         _title(ws5, "Scenario Comparison")
         hdrs = ["Scenario", "Total Cost (TL)", "Delta (TL)", "Delta (%)"]
         wids = [24, 18, 14, 12]
-        for j, (h, w) in enumerate(zip(hdrs, wids), start=1):
+        for j, (h, w) in enumerate(zip(hdrs, wids, strict=True), start=1):
             _hdr(ws5, 3, j, h, w)
         base = list(saved_scenarios.values())[0]["total_cost"]
         for i, (sname, sdata) in enumerate(saved_scenarios.items(), start=4):

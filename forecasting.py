@@ -3,7 +3,9 @@ Demand forecasting — Holt double-exponential smoothing.
 Generates synthetic quarterly demand history and forecasts next n periods.
 """
 from __future__ import annotations
+
 import numpy as np
+
 from data import WAREHOUSES
 
 

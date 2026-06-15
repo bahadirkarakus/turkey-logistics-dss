@@ -1,13 +1,15 @@
-streamlit>=1.35.0
-pulp>=2.8.0
-folium>=0.17.0
-streamlit-folium>=0.20.0
-plotly>=5.22.0
-pandas>=2.2.0
-numpy>=1.26.0
-fpdf2>=2.7.9
-requests>=2.31.0
-openpyxl>=3.1.0
-fastapi>=0.111.0
-uvicorn>=0.29.0
-pytest>=8.0.0
+# Runtime dependencies. Upper bounds pin the major version so a surprise
+# breaking release can't silently break the deployed app (Streamlit Cloud / CI).
+streamlit>=1.35,<2
+pulp>=2.8,<4
+folium>=0.17,<1
+streamlit-folium>=0.20,<1
+plotly>=5.22,<7
+pandas>=2.2,<4
+numpy>=1.26,<3
+fpdf2>=2.7.9,<3
+requests>=2.31,<3
+openpyxl>=3.1,<4
+pyyaml>=6.0,<7
+fastapi>=0.111,<1
+uvicorn>=0.29,<1
