@@ -1,5 +1,10 @@
 # 🚛 Turkey Logistics Decision-Support System
 
+[![CI](https://github.com/bahadirkarakus/turkey-logistics-dss/actions/workflows/ci.yml/badge.svg)](https://github.com/bahadirkarakus/turkey-logistics-dss/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A **portfolio-quality transportation optimization tool** for a Turkish logistics network, built with Python, PuLP, and Streamlit.
 
 🔗 **Live demo:** [turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app](https://turkey-logistics-dss-33hou3yq4gqkhaiejjrglh.streamlit.app)
