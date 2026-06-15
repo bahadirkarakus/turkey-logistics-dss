@@ -4,6 +4,7 @@ Assumes app is already running on port 8502.
 """
 
 import asyncio
+
 from playwright.async_api import async_playwright
 
 BASE = "http://localhost:8502"

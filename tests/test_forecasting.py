@@ -1,6 +1,5 @@
-import pytest
-from forecasting import forecast_demand, generate_historical
 from data import WAREHOUSES
+from forecasting import forecast_demand, generate_historical
 
 
 class TestGenerateHistorical:

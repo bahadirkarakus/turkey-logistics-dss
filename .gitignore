@@ -7,6 +7,17 @@ venv/
 *.egg-info/
 .DS_Store
 
+# Test / coverage artifacts
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Generated paper PDF (2.8 MB) — build locally from report_ieee.tex,
+# distribute via a GitHub Release rather than tracking in the repo.
+report_ieee.pdf
+
 # LaTeX build artifacts
 *.aux
 *.fdb_latexmk

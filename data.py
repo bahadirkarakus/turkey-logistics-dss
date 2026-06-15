@@ -1,76 +1,106 @@
 """
 Turkey Logistics Network — Data Layer
-Production centres → Warehouses transportation problem data.
+
+The network (production centres, warehouses, distances, tolls), cost parameters
+and scenarios are **not hardcoded** here — they are loaded at import time from
+editable files under ``network/`` (CSV + YAML). Point the ``NETWORK_DIR``
+environment variable at another directory to model a completely different
+network without touching any code.
+
+Individual cost parameters can also be overridden via environment variables,
+e.g. ``FUEL_PRICE_TL_PER_LITRE=55`` overrides ``fuel_price_tl_per_litre``.
 """
 
 from __future__ import annotations
+
+import csv
+import functools
+import os
+from pathlib import Path
+
 import requests
+import yaml
 
 # ---------------------------------------------------------------------------
-# NETWORK NODES
+# NETWORK DIRECTORY
 # ---------------------------------------------------------------------------
+NETWORK_DIR = Path(os.getenv("NETWORK_DIR", Path(__file__).parent / "network"))
 
-SOURCES = {
-    "İstanbul": {"capacity": 800, "lat": 41.0082, "lon": 28.9784, "color": "#E74C3C"},
-    "Ankara":   {"capacity": 600, "lat": 39.9334, "lon": 32.8597, "color": "#E74C3C"},
-    "İzmir":    {"capacity": 500, "lat": 38.4189, "lon": 27.1287, "color": "#E74C3C"},
-    "Bursa":    {"capacity": 400, "lat": 40.1885, "lon": 29.0610, "color": "#E74C3C"},
-    "Adana":    {"capacity": 350, "lat": 37.0000, "lon": 35.3213, "color": "#E74C3C"},
-}
-
-WAREHOUSES = {
-    "Konya":      {"demand": 250, "lat": 37.8667, "lon": 32.4833, "color": "#2ECC71"},
-    "Kayseri":    {"demand": 200, "lat": 38.7312, "lon": 35.4787, "color": "#2ECC71"},
-    "Trabzon":    {"demand": 150, "lat": 41.0015, "lon": 39.7178, "color": "#2ECC71"},
-    "Gaziantep":  {"demand": 220, "lat": 37.0662, "lon": 37.3833, "color": "#2ECC71"},
-    "Antalya":    {"demand": 280, "lat": 36.8969, "lon": 30.7133, "color": "#2ECC71"},
-    "Samsun":     {"demand": 180, "lat": 41.2867, "lon": 36.3300, "color": "#2ECC71"},
-    "Eskişehir":  {"demand": 160, "lat": 39.7767, "lon": 30.5206, "color": "#2ECC71"},
-    "Diyarbakır": {"demand": 170, "lat": 37.9144, "lon": 40.2306, "color": "#2ECC71"},
-}
 
 # ---------------------------------------------------------------------------
-# DISTANCES (km) — Google Maps approximations
+# LOADERS
 # ---------------------------------------------------------------------------
-#           Konya  Kayseri  Trabzon  Gaziantep  Antalya  Samsun  Eskişehir  Diyarbakır
-DISTANCES = {
-    "İstanbul": [550,  770,  1100,  1130,  730,  730,  335,  1400],
-    "Ankara":   [260,  340,   780,   660,  545,  420,  235,   940],
-    "İzmir":    [560,  760,  1350,   980,  440, 1100,  535,  1250],
-    "Bursa":    [510,  730,  1000,  1060,  680,  660,  155,  1330],
-    "Adana":    [340,  330,   870,   220,  555,  760,  750,   430],
-}
+def _load_nodes(filename: str, value_key: str) -> dict:
+    """
+    Reads a node CSV (sources / warehouses) into the canonical dict shape:
+        {name: {value_key: int, "lat": float, "lon": float, "color": str}}
+    """
+    nodes: dict[str, dict] = {}
+    with open(NETWORK_DIR / filename, encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            nodes[row["name"]] = {
+                value_key: int(row[value_key]),
+                "lat": float(row["lat"]),
+                "lon": float(row["lon"]),
+                "color": row["color"],
+            }
+    return nodes
 
-# HGS/OGS toll estimates per route (TL per truck)
-TOLLS = {
-    "İstanbul": [120, 180, 250, 260, 200, 200,  80, 320],
-    "Ankara":   [ 60,  80, 180, 160, 140, 100,  50, 220],
-    "İzmir":    [130, 180, 300, 230, 100, 260, 120, 290],
-    "Bursa":    [110, 170, 230, 240, 180, 200,  40, 310],
-    "Adana":    [ 80,  75, 200,  50, 130, 175, 170, 100],
-}
+
+def _load_matrix(filename: str, warehouse_order: list[str]) -> dict:
+    """
+    Reads a source×warehouse matrix CSV into ``{source: [values...]}`` with
+    values ordered to match ``warehouse_order`` (so downstream integer indexing
+    stays valid regardless of column order in the file).
+    """
+    matrix: dict[str, list[float]] = {}
+    with open(NETWORK_DIR / filename, encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            src = row["source"]
+            matrix[src] = [float(row[wh]) for wh in warehouse_order]
+    return matrix
+
+
+def _env_param(key: str, default: float) -> float:
+    """Returns a cost parameter, overridable via an UPPER_SNAKE env variable."""
+    raw = os.getenv(key.upper())
+    return float(raw) if raw is not None else float(default)
+
+
+def _load_config() -> tuple[dict, dict]:
+    """Loads (PARAMS, SCENARIOS) from config.yaml, applying env overrides to params."""
+    with open(NETWORK_DIR / "config.yaml", encoding="utf-8") as fh:
+        cfg = yaml.safe_load(fh)
+
+    params = {k: _env_param(k, v) for k, v in cfg["params"].items()}
+    # truck_capacity_units is conceptually an int
+    params["truck_capacity_units"] = int(params["truck_capacity_units"])
+    return params, cfg["scenarios"]
+
 
 # ---------------------------------------------------------------------------
-# COST PARAMETERS
+# NETWORK DATA (loaded at import)
 # ---------------------------------------------------------------------------
-PARAMS = {
-    "fuel_price_tl_per_litre": 40.0,     # TL/litre (motorin)
-    "fuel_consumption_per_100km": 30.0,  # litre/100 km (TIR)
-    "driver_wage_tl_per_hour": 150.0,    # TL/h
-    "avg_speed_kmh": 80.0,               # km/h
-    "load_fee_tl": 200.0,                # TL fixed loading/unloading
-    "truck_capacity_units": 25,          # units per truck
-    "co2_kg_per_litre": 2.68,            # kg CO₂ per litre diesel (IPCC)
-}
+SOURCES = _load_nodes("sources.csv", "capacity")
+WAREHOUSES = _load_nodes("warehouses.csv", "demand")
+
+_WAREHOUSE_ORDER = list(WAREHOUSES.keys())
+DISTANCES = _load_matrix("distances.csv", _WAREHOUSE_ORDER)   # km
+TOLLS = _load_matrix("tolls.csv", _WAREHOUSE_ORDER)           # TL per truck
+
+PARAMS, SCENARIOS = _load_config()
 
 
+# ---------------------------------------------------------------------------
+# DERIVED MATRICES
+# ---------------------------------------------------------------------------
 def compute_co2_matrix() -> dict:
     """Returns CO₂ emissions (kg per unit shipped) for each (source, warehouse) pair."""
     p          = PARAMS
     warehouses = list(WAREHOUSES.keys())
     sources    = list(SOURCES.keys())
     co2        = {}
-    for i, src in enumerate(sources):
+    for src in sources:
         co2[src] = {}
         for j, wh in enumerate(warehouses):
             d               = DISTANCES[src][j]
@@ -80,51 +110,14 @@ def compute_co2_matrix() -> dict:
     return co2
 
 
-# ---------------------------------------------------------------------------
-# SCENARIOS
-# ---------------------------------------------------------------------------
-SCENARIOS = {
-    "Normal Season": {
-        "demand_multipliers": {w: 1.0 for w in WAREHOUSES},
-        "fuel_multiplier": 1.0,
-        "description": "Base scenario — standard demand and costs.",
-    },
-    "Summer Season": {
-        "demand_multipliers": {
-            "Konya": 1.0, "Kayseri": 1.0, "Trabzon": 1.20,
-            "Gaziantep": 1.0, "Antalya": 1.40, "Samsun": 1.15,
-            "Eskişehir": 1.0, "Diyarbakır": 1.0,
-        },
-        "fuel_multiplier": 1.0,
-        "description": "Tourism season — Antalya +40%, Trabzon +20%, Samsun +15%.",
-    },
-    "Fuel Increase (+20%)": {
-        "demand_multipliers": {w: 1.0 for w in WAREHOUSES},
-        "fuel_multiplier": 1.20,
-        "description": "All route costs increased by 20%.",
-    },
-    "Winter Season": {
-        "demand_multipliers": {
-            "Konya": 1.10, "Kayseri": 1.15, "Trabzon": 0.80,
-            "Gaziantep": 1.05, "Antalya": 0.70, "Samsun": 0.90,
-            "Eskişehir": 1.10, "Diyarbakır": 1.20,
-        },
-        "fuel_multiplier": 1.05,
-        "description": "Winter season — inland cities up, coastal resorts down.",
-    },
-}
-
-
 def compute_cost_matrix(fuel_multiplier: float = 1.0) -> dict:
-    """
-    Returns cost (TL per unit) for each (source, warehouse) pair.
-    """
+    """Returns cost (TL per unit) for each (source, warehouse) pair."""
     p = PARAMS
     warehouses = list(WAREHOUSES.keys())
     sources    = list(SOURCES.keys())
     cost = {}
 
-    for i, src in enumerate(sources):
+    for src in sources:
         cost[src] = {}
         for j, wh in enumerate(warehouses):
             d   = DISTANCES[src][j]
@@ -163,42 +156,56 @@ def get_scenario_data(scenario_name: str,
 # ---------------------------------------------------------------------------
 # OSRM — Real road distances (optional, falls back to DISTANCES on failure)
 # ---------------------------------------------------------------------------
-
+@functools.lru_cache(maxsize=4)
 def fetch_real_distances(timeout: int = 6) -> tuple[dict, dict]:
     """
     Fetches real road distances and durations via the public OSRM demo server.
-    Returns (distances_km, durations_h) in the same shape as DISTANCES.
-    Falls back to the hardcoded DISTANCES on any error.
+
+    Uses a single OSRM ``/table`` request (one round-trip for the whole matrix
+    instead of one request per source/warehouse pair) and caches the result for
+    the process lifetime. Returns (distances_km, durations_h) in the same shape
+    as DISTANCES. Falls back to the hardcoded DISTANCES on any error.
     """
     sources    = list(SOURCES.keys())
     warehouses = list(WAREHOUSES.keys())
-    base_url   = "http://router.project-osrm.org/route/v1/driving"
 
-    new_distances: dict[str, list[float]] = {s: [] for s in sources}
-    new_durations: dict[str, list[float]] = {s: [] for s in sources}
+    # OSRM expects lon,lat;lon,lat;... — sources first, then warehouses.
+    coords = ";".join(
+        f"{SOURCES[s]['lon']},{SOURCES[s]['lat']}" for s in sources
+    ) + ";" + ";".join(
+        f"{WAREHOUSES[w]['lon']},{WAREHOUSES[w]['lat']}" for w in warehouses
+    )
+    n_src = len(sources)
+    src_idx = ";".join(str(i) for i in range(n_src))
+    dst_idx = ";".join(str(n_src + j) for j in range(len(warehouses)))
+
+    url = (
+        f"http://router.project-osrm.org/table/v1/driving/{coords}"
+        f"?sources={src_idx}&destinations={dst_idx}"
+        f"&annotations=distance,duration"
+    )
 
     try:
-        for src in sources:
-            src_lat = SOURCES[src]["lat"]
-            src_lon = SOURCES[src]["lon"]
-            for wh in warehouses:
-                wh_lat = WAREHOUSES[wh]["lat"]
-                wh_lon = WAREHOUSES[wh]["lon"]
-                url = (f"{base_url}/{src_lon},{src_lat};"
-                       f"{wh_lon},{wh_lat}?overview=false")
-                r = requests.get(url, timeout=timeout)
-                r.raise_for_status()
-                data = r.json()
-                route = data["routes"][0]
-                new_distances[src].append(round(route["distance"] / 1000, 1))  # m → km
-                new_durations[src].append(round(route["duration"] / 3600, 2))  # s → h
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        dist_m = data["distances"]   # metres, [n_src][n_dst]
+        dur_s  = data["durations"]   # seconds
+
+        new_distances = {
+            src: [round(dist_m[i][j] / 1000, 1) for j in range(len(warehouses))]
+            for i, src in enumerate(sources)
+        }
+        new_durations = {
+            src: [round(dur_s[i][j] / 3600, 2) for j in range(len(warehouses))]
+            for i, src in enumerate(sources)
+        }
+        return new_distances, new_durations
     except Exception:
-        # Return hardcoded fallback
+        # Hardcoded fallback (durations derived from distance / avg speed).
         durations = {
             src: [DISTANCES[src][j] / PARAMS["avg_speed_kmh"]
                   for j in range(len(warehouses))]
             for src in sources
         }
         return DISTANCES, durations
-
-    return new_distances, new_durations

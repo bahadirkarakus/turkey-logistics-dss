@@ -25,7 +25,20 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
-      - name: Run pytest
-        run: python -m pytest tests/ -v --tb=short
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Run pytest with coverage
+        run: >-
+          python -m pytest tests/ -v --tb=short
+          --cov=. --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: ignore

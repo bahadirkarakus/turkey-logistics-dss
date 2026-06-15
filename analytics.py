@@ -3,10 +3,12 @@ Analytics module — Sensitivity Analysis, Monte Carlo, Multi-Objective Pareto.
 """
 
 from __future__ import annotations
+
 import numpy as np
 import pulp
-from data import DISTANCES, WAREHOUSES, SOURCES, PARAMS
 
+from data import DISTANCES, PARAMS, WAREHOUSES
+from solver import get_solver
 
 # ---------------------------------------------------------------------------
 # SENSITIVITY ANALYSIS
@@ -40,7 +42,7 @@ def sensitivity_analysis(supply: dict, demand: dict, cost: dict) -> dict:
         prob += (pulp.lpSum(x[i, j] for i in sources) >= demand[j],
                  f"demand_{j}")
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+    prob.solve(get_solver())
 
     shadow_supply, shadow_demand, reduced_costs, shipments = {}, {}, {}, {}
 
@@ -178,7 +180,7 @@ def multi_objective_pareto(supply: dict, demand: dict, cost: dict,
         for j in warehouses:
             prob += pulp.lpSum(x[i, j] for i in sources) >= demand[j]
 
-        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+        prob.solve(get_solver())
 
         if pulp.LpStatus[prob.status] != "Optimal":
             return None, None

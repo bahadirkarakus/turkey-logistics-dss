@@ -3,9 +3,10 @@ PDF Report Generator — fpdf2
 """
 
 from __future__ import annotations
-from datetime import datetime
-from fpdf import FPDF
 
+from datetime import datetime
+
+from fpdf import FPDF
 
 _TR = str.maketrans(
     "ğĞşŞİıöÖüÜçÇ",

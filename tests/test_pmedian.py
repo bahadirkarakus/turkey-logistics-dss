@@ -1,6 +1,7 @@
 import pytest
-from pmedian import solve_pmedian, ALL_LOCATIONS, haversine
+
 from data import WAREHOUSES
+from pmedian import ALL_LOCATIONS, haversine, solve_pmedian
 
 
 class TestHaversine:
@@ -23,7 +24,7 @@ class TestAllLocations:
         assert len(ALL_LOCATIONS) == 13  # 5 sources + 8 warehouses
 
     def test_has_lat_lon(self):
-        for city, info in ALL_LOCATIONS.items():
+        for info in ALL_LOCATIONS.values():
             assert "lat" in info and "lon" in info
 
 
@@ -45,7 +46,7 @@ class TestSolvePMedian:
 
     def test_assigned_to_open_facility(self):
         r = solve_pmedian(p=3)
-        for node, fac in r["assignment"].items():
+        for fac in r["assignment"].values():
             assert fac in r["selected"]
 
     def test_total_weighted_dist_positive(self):

@@ -1,0 +1,66 @@
+# Cost parameters and scenario definitions for the Turkey logistics network.
+# Edit this file (and the sibling CSVs) to model a different network — no code
+# changes required. Any value here can also be overridden at runtime via an
+# environment variable (see data.py → _env_param).
+
+params:
+  fuel_price_tl_per_litre: 40.0      # TL/litre (motorin)
+  fuel_consumption_per_100km: 30.0   # litre / 100 km (TIR)
+  driver_wage_tl_per_hour: 150.0     # TL/h
+  avg_speed_kmh: 80.0                # km/h
+  load_fee_tl: 200.0                 # TL fixed loading/unloading
+  truck_capacity_units: 25           # units per truck
+  co2_kg_per_litre: 2.68             # kg CO2 per litre diesel (IPCC)
+
+scenarios:
+  Normal Season:
+    description: "Base scenario — standard demand and costs."
+    fuel_multiplier: 1.0
+    demand_multipliers:
+      Konya: 1.0
+      Kayseri: 1.0
+      Trabzon: 1.0
+      Gaziantep: 1.0
+      Antalya: 1.0
+      Samsun: 1.0
+      Eskişehir: 1.0
+      Diyarbakır: 1.0
+
+  Summer Season:
+    description: "Tourism season — Antalya +40%, Trabzon +20%, Samsun +15%."
+    fuel_multiplier: 1.0
+    demand_multipliers:
+      Konya: 1.0
+      Kayseri: 1.0
+      Trabzon: 1.20
+      Gaziantep: 1.0
+      Antalya: 1.40
+      Samsun: 1.15
+      Eskişehir: 1.0
+      Diyarbakır: 1.0
+
+  Fuel Increase (+20%):
+    description: "All route costs increased by 20%."
+    fuel_multiplier: 1.20
+    demand_multipliers:
+      Konya: 1.0
+      Kayseri: 1.0
+      Trabzon: 1.0
+      Gaziantep: 1.0
+      Antalya: 1.0
+      Samsun: 1.0
+      Eskişehir: 1.0
+      Diyarbakır: 1.0
+
+  Winter Season:
+    description: "Winter season — inland cities up, coastal resorts down."
+    fuel_multiplier: 1.05
+    demand_multipliers:
+      Konya: 1.10
+      Kayseri: 1.15
+      Trabzon: 0.80
+      Gaziantep: 1.05
+      Antalya: 0.70
+      Samsun: 0.90
+      Eskişehir: 1.10
+      Diyarbakır: 1.20

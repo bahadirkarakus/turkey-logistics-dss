@@ -1,11 +1,14 @@
 """Tests for PDF and Excel export modules."""
 
+import io
+
+import openpyxl
 import pytest
-from data import get_scenario_data, compute_co2_matrix
+
+from data import compute_co2_matrix, get_scenario_data
+from excel_export import generate_excel
 from model import solve
 from report import generate_pdf
-from excel_export import generate_excel
-import openpyxl, io
 
 
 @pytest.fixture(scope="module")

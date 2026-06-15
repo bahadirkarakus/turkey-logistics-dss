@@ -1,8 +1,9 @@
 """Tests for the LP transportation model."""
 
 import pytest
-from data import get_scenario_data, SOURCES, WAREHOUSES
-from model import solve, formulation_text
+
+from data import SOURCES, WAREHOUSES, get_scenario_data
+from model import formulation_text, solve
 
 
 class TestSolveOptimality:
