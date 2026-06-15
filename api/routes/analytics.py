@@ -7,8 +7,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from fastapi import APIRouter, HTTPException
 
-from analytics import monte_carlo, multi_objective_pareto, sensitivity_analysis
+from analytics import (
+    fuel_price_sweep,
+    monte_carlo,
+    multi_objective_pareto,
+    sensitivity_analysis,
+)
 from api.schemas import (
+    FuelSweepRequest,
+    FuelSweepResponse,
     MonteCarloRequest,
     MonteCarloResponse,
     ParetoPoint,
@@ -70,3 +77,19 @@ def pareto_endpoint(req: ParetoRequest):
         pareto=[ParetoPoint(**p) for p in result["pareto"]],
         all_points=[ParetoPoint(**p) for p in result["all_points"]],
     )
+
+
+@router.post("/fuel-sweep", response_model=FuelSweepResponse)
+def fuel_sweep_endpoint(req: FuelSweepRequest):
+    if req.scenario not in SCENARIOS:
+        raise HTTPException(400, f"Unknown scenario: {req.scenario}")
+    if (req.min_price is not None and req.max_price is not None
+            and req.min_price >= req.max_price):
+        raise HTTPException(400, "min_price must be less than max_price")
+    result = fuel_price_sweep(
+        req.scenario,
+        n_points=req.n_points,
+        min_price=req.min_price,
+        max_price=req.max_price,
+    )
+    return FuelSweepResponse(**result)

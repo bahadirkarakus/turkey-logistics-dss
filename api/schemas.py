@@ -85,6 +85,25 @@ class ParetoResponse(BaseModel):
     all_points: list[ParetoPoint]
 
 
+# ── /fuel-sweep ───────────────────────────────────────────────────────────────
+
+class FuelSweepRequest(BaseModel):
+    scenario:  str   = "Normal Season"
+    n_points:  int   = Field(12, ge=2, le=50)
+    min_price: float | None = Field(None, gt=0)
+    max_price: float | None = Field(None, gt=0)
+
+class FuelSweepPoint(BaseModel):
+    fuel_price: float
+    total_cost: float
+
+class FuelSweepResponse(BaseModel):
+    scenario:   str
+    base_price: float
+    elasticity: float | None
+    points:     list[FuelSweepPoint]
+
+
 # ── /scenarios ────────────────────────────────────────────────────────────────
 
 class ScenarioInfo(BaseModel):
