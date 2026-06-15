@@ -214,3 +214,66 @@ def multi_objective_pareto(supply: dict, demand: dict, cost: dict,
         pareto = points
 
     return {"pareto": pareto, "all_points": points}
+
+
+# ---------------------------------------------------------------------------
+# FUEL PRICE SENSITIVITY SWEEP
+# ---------------------------------------------------------------------------
+
+def fuel_price_sweep(scenario: str,
+                     n_points: int = 12,
+                     min_price: float | None = None,
+                     max_price: float | None = None) -> dict:
+    """
+    Sweeps the diesel price over a range and re-solves the LP at each point,
+    tracing how the minimum total cost responds to fuel price.
+
+    Parameters
+    ----------
+    scenario  : scenario name from SCENARIOS
+    n_points  : number of price points to evaluate
+    min_price : lowest diesel price (TL/L); defaults to 50% of the base price
+    max_price : highest diesel price (TL/L); defaults to 200% of the base price
+
+    Returns
+    -------
+    {
+        "scenario":   str,
+        "base_price": float,                              # TL/L
+        "points":     [{"fuel_price": float, "total_cost": float}, ...],
+        "elasticity": float | None,   # % change in cost per % change in price
+    }
+    """
+    from data import get_scenario_data
+    from model import solve
+
+    base_price = PARAMS["fuel_price_tl_per_litre"]
+    lo = min_price if min_price is not None else base_price * 0.5
+    hi = max_price if max_price is not None else base_price * 2.0
+
+    points = []
+    for price in np.linspace(lo, hi, n_points):
+        mult = float(price) / base_price
+        supply, demand, cost = get_scenario_data(scenario, custom_fuel_mult=mult)
+        res = solve(supply, demand, cost)
+        if res["status"] == "Optimal":
+            points.append({
+                "fuel_price": round(float(price), 2),
+                "total_cost": res["total_cost"],
+            })
+
+    # Arc elasticity of cost w.r.t. fuel price across the swept range.
+    elasticity = None
+    if len(points) >= 2:
+        p0, p1 = points[0], points[-1]
+        d_price = (p1["fuel_price"] - p0["fuel_price"]) / p0["fuel_price"]
+        d_cost  = (p1["total_cost"] - p0["total_cost"]) / p0["total_cost"]
+        if d_price:
+            elasticity = round(d_cost / d_price, 3)
+
+    return {
+        "scenario":   scenario,
+        "base_price": base_price,
+        "points":     points,
+        "elasticity": elasticity,
+    }

@@ -86,3 +86,18 @@ class TestAnalytics:
         assert len(body["pareto"]) >= 1
         for p in body["pareto"]:
             assert {"alpha", "cost", "time"} <= set(p.keys())
+
+    def test_fuel_sweep(self):
+        r = client.post("/fuel-sweep", json={"scenario": "Normal Season", "n_points": 6})
+        assert r.status_code == 200
+        body = r.json()
+        assert len(body["points"]) == 6
+        assert body["elasticity"] > 0
+        costs = [p["total_cost"] for p in body["points"]]
+        assert costs == sorted(costs)  # cost rises with fuel price
+
+    def test_fuel_sweep_bad_range(self):
+        r = client.post("/fuel-sweep", json={
+            "scenario": "Normal Season", "min_price": 80, "max_price": 40,
+        })
+        assert r.status_code == 400

@@ -2,7 +2,12 @@
 
 import pytest
 
-from analytics import monte_carlo, multi_objective_pareto, sensitivity_analysis
+from analytics import (
+    fuel_price_sweep,
+    monte_carlo,
+    multi_objective_pareto,
+    sensitivity_analysis,
+)
 
 
 class TestSensitivity:
@@ -101,3 +106,32 @@ class TestPareto:
                     assert not (q["cost"] <= p["cost"] and q["time"] <= p["time"]
                                 and (q["cost"] < p["cost"] or q["time"] < p["time"])), \
                         f"Point {p} dominated by {q}"
+
+
+class TestFuelPriceSweep:
+    @pytest.fixture(scope="class")
+    def sweep(self):
+        return fuel_price_sweep("Normal Season", n_points=8)
+
+    def test_point_count(self, sweep):
+        assert len(sweep["points"]) == 8
+
+    def test_prices_increasing(self, sweep):
+        prices = [p["fuel_price"] for p in sweep["points"]]
+        assert prices == sorted(prices)
+
+    def test_cost_monotonic_in_price(self, sweep):
+        """Higher fuel price can never reduce the minimum total cost."""
+        costs = [p["total_cost"] for p in sweep["points"]]
+        assert all(b >= a for a, b in zip(costs, costs[1:], strict=False))
+
+    def test_positive_elasticity(self, sweep):
+        # Cost rises with fuel price → elasticity is positive.
+        assert sweep["elasticity"] is not None
+        assert sweep["elasticity"] > 0
+
+    def test_custom_range(self):
+        s = fuel_price_sweep("Normal Season", n_points=5,
+                             min_price=30.0, max_price=60.0)
+        assert s["points"][0]["fuel_price"] == 30.0
+        assert s["points"][-1]["fuel_price"] == 60.0
